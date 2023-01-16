@@ -5,11 +5,13 @@ Because of VACC dynamics. The flag "--home $1" was added to singularity. Also ar
 Other modifications have been made to "RunDocker" for optimization into the VACC cluster
 
 ## Run
+```
 wd=.
-sbatch --array=1-1 \
-${wd}/DEST_freeze1/mappingPipeline/scripts/runDocker.sh \
+sbatch --array=1-20 \
+--mail-type=ALL \
+${wd}/runDocker_RUN.sh \
 /users/j/n/jnunez2/scratch/test_DEST \
-/netfiles02/lockwood_lab/IntrogressionProject/IntrogressionRawData/MERGED_READS_fixed \
+/netfiles02/lockwood_lab/IntrogressionProject/IntrogressionRawData/RawReads_Curated_2023 \
 ${wd}/pipeline_output \
-/netfiles02/lockwood_lab/IntrogressionProject/IntrogressionRawData/sampleId_meta_data.txt
-
+/netfiles02/lockwood_lab/IntrogressionProject/IntrogressionRawData/mapping_meta_data_Jan5.2023.txt
+```
