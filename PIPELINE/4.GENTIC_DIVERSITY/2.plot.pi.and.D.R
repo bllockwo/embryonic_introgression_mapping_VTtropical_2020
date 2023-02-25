@@ -66,7 +66,7 @@ foreach(i=1:dim(guide.files)[1], .combine = "rbind")%do%{
 ########### <------ LOAD HERE
 ########### <------ LOAD HERE
 ########### <------ LOAD HERE
-load("pi.d.stats.Rdata")
+load("PileupStats/pi.d.stats.Rdata")
 ########### <------ LOAD HERE
 ########### <------ LOAD HERE
 ########### <------ LOAD HERE
@@ -142,10 +142,10 @@ pi.d.stats %>%
   theme(legend.position = "bottom") +
   guides(fill=guide_legend(title="Replicate")) +
   scale_fill_brewer(palette = "Dark2") +
-  facet_grid(.~pop.group, scales = "free_x") ->
+  facet_wrap(.~pop.group, scales = "free_x", ncol = 2) ->
   pi.stats.box
 
-ggsave(pi.stats.box, file = "pi.stats.box.pdf", w = 8, h = 3.0)
+ggsave(pi.stats.box, file = "pi.stats.box.pdf", w = 4.5, h = 5)
 
 ###
 pi.d.stats %>%

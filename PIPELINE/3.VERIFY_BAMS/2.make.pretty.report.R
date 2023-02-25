@@ -34,7 +34,7 @@ return(tmp)
 }
 
 maxt = ifelse(items.to.load[k] %in% c("insert_size_histogram.txt",
-                                      "duplication_rate_histogram.txt",
+                                      #"duplication_rate_histogram.txt",
                                       "coverage_across_reference.txt"
                                       )
               , 1e9, 200)
@@ -134,7 +134,8 @@ o.ag.summ %>%
   filter(samp %in% pass.samps) %>%
   filter(bam_slice == "Dmel") %>%
   group_by(metric) %>%
-  summarise(m = mean(m))
+  summarise(m.m = mean(m),
+            sd = sd(m, na.rm = T))
 ###
 o.ag.summ %>%
   filter(samp %in% pass.samps) %>%
@@ -144,9 +145,11 @@ o.ag.summ %>%
 cor.test(dcast.tmp$coverage_across_reference, dcast.tmp$insert_size_across_reference)
 cor.test(dcast.tmp$mapping_quality_across_reference, dcast.tmp$insert_size_across_reference)
 
+
+
 ###
 foreach(i = c("coverage_across_reference", 
-              "insert_size_across_reference", 
+              #"insert_size_across_reference", 
               "mapping_quality_across_reference"))%do%{
                 
 o.ag.summ %>%
@@ -191,7 +194,9 @@ ggsave(metrics.mapping, file = paste(i, ".pdf", sep = ""), w= 4, h = 4)
 
 }
 
-ggsave(coverage_across_reference+mapping_quality_across_reference+insert_size_across_reference, file = "Figure.QC.pdf",
-       h =3.5, w = 9)
+ggsave(coverage_across_reference+mapping_quality_across_reference, #+
+         #insert_size_across_reference, 
+         file = "Figure.QC.pdf",
+       h =3.5, w = 7)
 
 
