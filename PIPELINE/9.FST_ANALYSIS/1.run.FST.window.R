@@ -173,14 +173,16 @@ fst.df = foreach(i = 1:dim(comp.pairs)[1], .combine = "rbind" )%dopar%{
   
   fst.out <- computeFST(pool, method = "Anova")
   
-  data.frame(
+  data.frame(snp.fst = fst.out$snp.FST) %>% 
+    mutate(
+    pos = rownames(.),
+    chr = wins$chr[k],
     samp1 = comp.pairs$samp1[i],
     samp2 = comp.pairs$samp2[i],
     FST = fst.out$FST,
     winSTA = wins$start[k],
     winEND = wins$end[k],
-    chr = wins$chr[k]
-  )
+  ) 
   
 }## i   
 
