@@ -30,6 +30,19 @@ removed.samps = c("CH_0_2","VT10_0_2","VT10F2_2_1","CHF3_3_1")
 samps %<>%
   filter(!Sample_id %in% removed.samps)
 
+samps %<>%
+  filter(Pop %in% c(
+"SK",
+"VT8",
+"SKF",
+"VT8F",
+"SKF2",
+"VT8F2",
+"SKF3",
+"VT8F3",
+"ME_temp",
+"PAN_trop"))
+
 #####
 #Generate outfile object
 L = dim(samps)[1]
@@ -87,7 +100,9 @@ snps.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
                       pos=seqGetData(genofile, "position"),
                       variant.id=seqGetData(genofile, "variant.id"),
                       nAlleles=seqNumAllele(genofile),
-                      missing=seqMissing(genofile))
+                      missing=seqMissing(genofile),
+                      allele=seqGetData(genofile, "allele")) %>%
+  separate(allele, into = c("ref_allele","alt_allele"), sep = ",")
 
 #####
 snps.dt %>%
@@ -96,6 +111,7 @@ snps.dt %>%
   snps.dt
 ####
 #snp.dt <- snp.dt[cm_mb>0 & !is.na(cm_mb)]
+setDT(snps.dt)
 snps.dt <- snps.dt[nAlleles==2]
 
 #### ==
@@ -147,6 +163,10 @@ snps.dt %>%
   .$SNP_id ->
   snps_of_win
 
+snps.dt %>%
+  filter(chr == wins$chr[k] & pos > wins$start[k] & pos < wins$end[k] ) ->
+  snps.dt.win
+
 ###
 fst.df = foreach(i = 1:dim(comp.pairs)[1], .combine = "rbind" )%dopar%{
   
@@ -163,15 +183,19 @@ fst.df = foreach(i = 1:dim(comp.pairs)[1], .combine = "rbind" )%dopar%{
   rd.matrix = dp[which(rownames(dp) %in% samps_to_compare ),
                  which(colnames(dp) %in% snps_of_win)]
   
+
   pool <- new("pooldata",
               npools=dim(ad.matrix)[1], #### Rows = Number of pools
               nsnp=dim(ad.matrix)[2], ### Columns = Number of SNPs
               refallele.readcount=t(ad.matrix),
               readcoverage=t(rd.matrix),
               poolsizes=pool_sizes * 2,
-              poolnames = samps_to_compare)
+              poolnames = samps_to_compare,
+              snp.info = snps.dt.win[,c("chr","pos","ref_allele","alt_allele")]
+              )
   
   fst.out <- computeFST(pool, method = "Anova")
+  #fst.out$mean.fst+c(-1.96,1.96)*fst.out$se.fst
   
   data.frame(snp.fst = fst.out$snp.FST) %>% 
     mutate(

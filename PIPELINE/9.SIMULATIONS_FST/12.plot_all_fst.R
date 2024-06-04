@@ -6,14 +6,34 @@ library(magrittr)
 library(foreach)
 library(vroom)
 
+####
+#### Load sims
+sim_enr = system("ls collect_enrrichFSTBinom", intern = T)
+
+sim_data = 
+  foreach(i=sim_enr, .combine = "rbind")%do%{
+    
+    message(i)
+    tmp <- get(load(paste("collect_enrrichFSTBinom/", i, sep = "")))
+    
+  }
+
+sim_data %>% 
+  group_by(chr, winSTA, winEND) %>%
+  summarize(upci = quantile(p.binom.adj, 0.99)) %>%
+  mutate(type = "simulations") ->
+  sims.binom
+
 #####
 #####
-met = vroom("master.file.fst.txt")
+met = vroom("/gpfs2/scratch/jcnunez/fst_brent/master.file.fst.txt")
+met[grep("VT8",met$samp1),] -> met
+
 #####
 #####
 
-outer=
-foreach(i = 1:13, .combine = "rbind")%do%{
+dat_in=
+foreach(i = 1:dim(met)[1], .combine = "rbind")%do%{
   message(paste(i,met$samp1[i],met$samp2[i]))
 inner=
 foreach(k = c("2L","2R","3L","3R","X"), .combine = "rbind")%do%{
@@ -23,6 +43,8 @@ foreach(k = c("2L","2R","3L","3R","X"), .combine = "rbind")%do%{
     arrange(as.numeric(pos))
   return(tmp)
 }
+
+###
 L = dim(inner)[1] 
 inner %>%
   arrange(-snp.fst) %>% 
@@ -46,27 +68,47 @@ inner.rnf %>%
 return(inner.binomtest)
 }
 
-
+save(dat_in, file = "fst.binomial.test.VT8.Rdata")
+load("/gpfs2/scratch/jcnunez/fst_brent/fst.binomial.test.VT8.Rdata")
 #####
 #####
 
-outer %>%
-  ggplot(aes(
+ggplot() +
+  geom_line(
+    data = dat_in,
+    aes(
     x=((winSTA+winEND)/2)/1e6,
     y=-log10(p.binom.adj),
     group = paste(samp1,samp2),
     color = paste(samp1,samp2)
   )) +
-  geom_vline(xintercept = 15391154/1e6) +
-  geom_vline(xintercept = 20276334/1e6) +
-  geom_line() +
+  geom_line(
+    data = dplyr::select(sim_data, winSTA, winEND, chr, ith, p.binom.adj ),
+    aes(
+      x=((winSTA+winEND)/2)/1e6,
+      y=-log10(p.binom.adj),
+      group = ith
+    ),   color = "grey30",alpha = 0.1
+  ) + 
+  theme_bw() +
   ggtitle("FST enrrich top 1%") +
-  facet_grid(paste(samp1,samp2)~chr, scales = "free_x") ->
+  facet_wrap(.~chr, scales = "free_x") ->
   testP
 ggsave(testP, 
        file = "fst.errich.pdf", 
-       w = 8, h = 9)
+       w = 6, h = 4)
 
+
+
+####
+
+dat_in %>%
+  filter(samp2 == "VT8F2_2_1") %>%
+  filter(chr == "2R") %>%
+  filter(p.binom.adj == 0) %>% 
+  group_by(samp2) %>%
+  summarize(minS = min(winSTA),
+            maxS = max(winEND))
 ###save(ag.fst.df, file = "ag.fst.df.Rdata")
 
 head(ag.fst.df)
