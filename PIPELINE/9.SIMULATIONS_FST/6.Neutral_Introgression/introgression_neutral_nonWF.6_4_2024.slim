@@ -1,6 +1,16 @@
 // Keywords: recombination rate map, recombination map
 
 initialize() {
+///FOR DEBUGGING ONLY
+//defineGlobal("DATA", "/gpfs2/scratch/jcnunez/fst_brent/simulations/win_data/2L_10500001_10592811.data.txt");
+//defineGlobal("META","/gpfs2/scratch/jcnunez/fst_brent/simulations/win_meta/2L_10500001_10592811.meta.txt");
+//// CLOSE DEBUGGING
+
+/// metadata in
+meta = readCSV(META, 
+c("chr", "level", "start",  "end", "Lenght", "rate_rho"),
+ sep="\t");
+
 	initializeSLiMModelType("nonWF");
 	defineConstant("K", 1500);
 
@@ -14,9 +24,6 @@ initialize() {
 
 
 //user defined data data
-	meta = readCSV(META, 
-c("chr", "level", "start",  "end", "Lenght", "rate_rho"),
- sep="\t");
 foldername = paste(meta.getValue("chr"),meta.getValue("start"),meta.getValue("end"),"nonWFintro", sep = "_" );
 defineGlobal("foldername", foldername);
 defineGlobal("MYPATH", "/gpfs2/scratch/jcnunez/fst_brent/simulations/nonWFintro_output");
@@ -26,20 +33,17 @@ defineGlobal("MYPATH", "/gpfs2/scratch/jcnunez/fst_brent/simulations/nonWFintro_
 reproduction() {
 	subpop.addCrossed(individual, subpop.sampleIndividuals(1));
 }
-
-/// carry capacity evaluation --- evaluated as a general "early event"
-early() {
-	p1.fitnessScaling = K / p1.individualCount;
-	p2.fitnessScaling = K / p2.individualCount;
-}
-
 //// First generation events
 //// create two populations (i.e., bottles) of 1500 individuals (diploid)
 1 early() { 
 sim.addSubpop("p1", 1500);
 sim.addSubpop("p2", 1500);
 }
-
+/// carry capacity evaluation --- evaluated as a general "early event"
+early() {
+	p1.fitnessScaling = K / p1.individualCount;
+	p2.fitnessScaling = K / p2.individualCount;
+}
 
 1 late() {
 //import data
@@ -67,16 +71,14 @@ cat(sim.cycle + "even" + "\n");
 
 // First we select 80% of p1 to die at random...
 // this operated under a random chance model where 80% of p1 is chosed to die at random.
-catn("chosen to die");
 chosentodie = sample(p1.individuals,  asInteger(round(length(p1.individuals)*0.8)) );
 sim.killIndividuals(chosentodie);
-catn("~300 should survive");
+catn(length(p1.individuals), "survivors -- after choosen to die");
 
 //perform introgression movement
 chosentointrogress = sample(p2.individuals, 300);
 p1.takeMigrants(chosentointrogress);
-catn("population should be 1500 inds now");
-
+catn(length(p1.individuals), "after take migrants");
 }
 
 ///// what happens at odds generations

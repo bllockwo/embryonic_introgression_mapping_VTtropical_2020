@@ -19,6 +19,16 @@ library(SNPRelate)
 library(DescTools)
 
 ###
+samps <- fread("/netfiles02/lockwood_lab/IntrogressionProject/Population_files/samp.guide.files.introg.txt")
+samps %>% 
+  filter(Pop %in% c("SK","VT8",
+                    "SKF","VT8F",
+                    "SKF2","VT8F2",
+                    "SKF3","VT8F3",
+                    "ME_temp","PAN_trop"
+  )) -> samps.flt
+
+
 ### Load the genotype locality
 genofile.path <- "/netfiles02/lockwood_lab/IntrogressionProject/SNPcalling_output/BLockIntro.PoolSeq.PoolSNP.001.5.test.ann.gds"
 
@@ -52,7 +62,8 @@ snps.dt %>%
 
 snps.dt <- snps.dt[nAlleles==2]
 
-seqSetFilter(genofile, variant.id=snps.dt$variant.id)
+seqSetFilter(genofile, sample.id = samps.flt$Sample_id, 
+             variant.id=snps.dt$variant.id)
 
 snps.dt[,af:=seqGetData(genofile, "annotation/info/AF")$data]
 
@@ -85,50 +96,14 @@ dat %>%
   t() %>% 
   as.data.frame -> dat_t
 
-ad %>%
-  t() %>% 
-  as.data.frame -> ad_t
+### row means
+rowMeans(dat_t) -> row_menas_cov
+dat_t[which(row_menas_cov > 0),] -> dat_t.nofix
 
-dp %>%
-  t() %>% 
-  as.data.frame -> dp_t
+dat_t.nofix %>%
+  mutate(SNP_id = rownames(.)) %>%
+  separate(SNP_id, into = c("chr", "pos", "feature"), sep = "_") ->
+  dat_t.nofix.meta
 
-#### you are done and now may want to save these objects for future use
-####
-
-##### Example script
-high.bulk = "CHF2_2_1"
-low.bulk = "VT8_0_1"
-
-ad_t %>%
-  .[,c(high.bulk,low.bulk)] %>%
-  mutate(SNP_id = rownames(.)) ->
-  ad.sel
-names(ad.sel) = c("hb_ad", "lb_ad", "SNP_id")
-
-dp_t %>%
-  .[,c(high.bulk,low.bulk)] %>%
-  mutate(SNP_id = rownames(.)) ->
-  dp.sel
-names(dp.sel) = c("hb_dp", "lb_dp", "SNP_id")
-
-left_join(ad.sel, dp.sel) %>% 
-  dplyr::select(SNP_id, hb_ad, lb_ad, hb_dp, lb_dp) %>%
-  mutate(hb_ref = hb_dp-hb_ad,
-         lb_ref = lb_dp-lb_ad
-         ) ->
-  tmp.dt
-
-tmp.dt %>% head %>% dplyr::select(!c(hb_dp,lb_dp) ) -> tmp.dt.h
-
-tmp.matrx <-
-  #matrix(c(3, 1, 1, 3),
-  matrix( c(tmp.dt$hb_ref[i], tmp.dt$hb_ad[i], tmp.dt$lb_ref[i],  tmp.dt$lb_ad[i])  ,
-         nrow = 2
-         #dimnames = list(High = c("REF", "ALT"),
-         #                 Low =  c("REF", "ALT"))
-         )
-
-GTest(tmp.matrx)
-
+dat_t.nofix.meta %>% .$chr %>% table
 
