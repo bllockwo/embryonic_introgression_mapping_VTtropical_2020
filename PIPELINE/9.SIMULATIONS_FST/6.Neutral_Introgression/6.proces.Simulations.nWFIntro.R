@@ -115,6 +115,7 @@ foreach(fil = filesL,
   
   tmp <- fread(paste(root, "/", oufol, "/", set, "/", fil , sep = "" ))
   names(tmp) = c("slim_pos", "AFsim", "chr", "ith" , "recoC", "start", "end", "recoR")
+  tmp %<>% filter(AFsim > 0.01)
   tmp <- arrange(tmp, slim_pos)
   left_join(AFO, tmp) -> joint.tmp
   

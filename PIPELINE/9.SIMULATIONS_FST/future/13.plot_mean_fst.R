@@ -3,11 +3,11 @@ library(magrittr)
 library(foreach)
 library(vroom)
 
-fstfiles = system("ls /gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST/", intern = T)
+fstfiles = system("ls /gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST_intro/", intern = T)
 
-args = commandArgs(trailingOnly=TRUE)
-k=as.numeric(args[1])
-print(k)
+#args = commandArgs(trailingOnly=TRUE)
+#k=as.numeric(args[1])
+#print(k)
 
 
 fst.wins = 
@@ -16,7 +16,7 @@ foreach(k=1:100, .combine = "rbind")%do%{
   
   message(k)
   inner=get(load(
-    paste("/gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST/", i, sep = "")
+    paste("/gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST_intro/", i, sep = "")
   ))
   
   inner %>% 
@@ -30,7 +30,7 @@ foreach(k=1:100, .combine = "rbind")%do%{
   
 }
 
-save(fst.wins, file = "fst.wins.mean.sims.Rdata")
+save(fst.wins, file = "fst.wins.mean.simsIntro.Rdata")
 
 
 ###  
@@ -70,4 +70,4 @@ rbind(real_fst, fst.wins) %>%
   facet_wrap(~chr) ->
   sim.fst.plot
 
-ggsave(sim.fst.plot, file = "sim.fst.plot.pdf")
+ggsave(sim.fst.plot, file = "sim.fst.plot.intro.pdf")

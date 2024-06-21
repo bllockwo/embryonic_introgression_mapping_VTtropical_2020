@@ -7,13 +7,13 @@
 #SBATCH --mem 80G #<= this may depend on your resources
 #SBATCH -p bluemoon
 #SBATCH -o ./slurmOutput/fst.%A_%a.out # Standard output
-#SBATCH --array=1-608
+#SBATCH --array=1-100
 
 module load Rtidyverse
 
 Rscript \
 --vanilla \
-6.proces.Simulations.nWFIntro.R \
+8.collect.sims.drift.nWFIntro.R \
 ${SLURM_ARRAY_TASK_ID}
 
 

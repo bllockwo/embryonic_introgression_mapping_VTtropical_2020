@@ -14,7 +14,7 @@ c("chr", "level", "start",  "end", "Lenght", "rate_rho"),
 	initializeSLiMModelType("nonWF");
 	defineConstant("K", 1500);
 
-	initializeMutationRate(1e-7);
+	initializeMutationRate(0);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, meta.getValue("Lenght"));
@@ -26,7 +26,7 @@ c("chr", "level", "start",  "end", "Lenght", "rate_rho"),
 //user defined data data
 foldername = paste(meta.getValue("chr"),meta.getValue("start"),meta.getValue("end"),"nonWFintro", sep = "_" );
 defineGlobal("foldername", foldername);
-defineGlobal("MYPATH", "/gpfs2/scratch/jcnunez/fst_brent/simulations/nonWFintro_output");
+defineGlobal("MYPATH", "/gpfs2/scratch/jcnunez/fst_brent/simulations_redo/nonWFintro_output");
 }
 
 /// basic non-wf reproduction model
