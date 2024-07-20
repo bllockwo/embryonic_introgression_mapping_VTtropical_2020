@@ -6,7 +6,7 @@ library(magrittr)
 library(foreach)
 library(vroom)
 
-fstfiles = system("ls /gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST/", intern = T)
+fstfiles = system("ls /gpfs2/scratch/jcnunez/fst_brent/simulations_redo/collect_FST_intro/", intern = T)
 
 ###### user defined parameters
 args = commandArgs(trailingOnly=TRUE)
@@ -16,7 +16,7 @@ print(k)
 i = fstfiles[k]
 
     inner=get(load(
-      paste("/gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST/", i, sep = "")
+      paste("/gpfs2/scratch/jcnunez/fst_brent/simulations_redo/collect_FST_intro/", i, sep = "")
     ))
     
     inner %>%

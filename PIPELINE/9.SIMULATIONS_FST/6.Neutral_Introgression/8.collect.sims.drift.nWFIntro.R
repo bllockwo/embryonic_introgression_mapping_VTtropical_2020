@@ -23,7 +23,7 @@ print(k)
 ### and we are collecting each simulation
 
 ####### localize to folder in Scratch
-setwd("/gpfs2/scratch/jcnunez/fst_brent/simulations")
+setwd("/gpfs2/scratch/jcnunez/fst_brent/simulations_redo")
 ####### Load reco_wins
 reco_wins <- fread("reco_wins.master.txt")
 names(reco_wins) = c("chr", "reco_level", "start", "end", "lenght" , "rho")
@@ -47,7 +47,7 @@ o1 %>%
   arrange(pos) -> o1.arr
 
 save(o1.arr,
-     file = paste("/gpfs2/scratch/jcnunez/fst_brent/simulations/collect_FST_intro/collect.FST.sim.nWFintro.",k,".Rdata", sep = "")
+     file = paste("/gpfs2/scratch/jcnunez/fst_brent/simulations_redo/collect_FST_intro/collect.FST.sim.nWFintro.",k,".Rdata", sep = "")
      )
 
 ### collect counts
@@ -67,6 +67,6 @@ o2 %>%
   arrange(real_pos) -> o2.arr
 
 save(o2.arr,
-     file = paste("/gpfs2/scratch/jcnunez/fst_brent/simulations/collect_COUNTS_intro/collect.COUNTS.sim.nWFintro.",k,".Rdata", sep = "")
+     file = paste("/gpfs2/scratch/jcnunez/fst_brent/simulations_redo/collect_COUNTS_intro/collect.COUNTS.sim.nWFintro.",k,".Rdata", sep = "")
 )
 

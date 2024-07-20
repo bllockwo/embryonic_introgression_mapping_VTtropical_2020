@@ -26,7 +26,9 @@ foreach(k=1:100, .combine = "rbind")%do%{
               winEND = mean(winEND),
               fstm = mean(FST)
     ) %>%
-    mutate(ith = k, type = "sim")
+    mutate(ith = k, type = "sim") -> o
+  
+  return(o)
   
 }
 
@@ -58,16 +60,49 @@ real_fst=
     }
 save(real_fst, file = "real_fst.mean.Rdata")
 
-    
-rbind(real_fst, fst.wins) %>%
+
+load("fst.wins.mean.simsIntro.Rdata")
+load("real_fst.mean.Rdata")
+
+
+fst.wins %>%
+  group_by(chr,winSTA,winEND) %>%
+  summarize(
+    sdfst = sd(fstm, na.rm = T),
+    fst95 = quantile(fstm, 0.90),
+    fst05 = quantile(fstm, 0.10),
+    fstm = mean(fstm, na.rm = T),
+            ) %>%
+rbind(., real_fst) %>%
   ggplot(aes(
-    x=( winSTA   + winEND)/2,
+    x=( winSTA   + winEND)/2e6,
     y=fstm,
+    ymin=fstm-2.576*(sdfst/sqrt(100)),
+    ymax=fstm+2.576*(sdfst/sqrt(100)),
+    #ymin=fst05,
+    #ymax=fst95,
     color = type,
-    group=ith
+    #group=ith
   )) +
-  geom_line() +
-  facet_wrap(~chr) ->
+  geom_point() +
+  geom_ribbon(alpha = 0.8) +
+  geom_smooth() +
+  theme_bw() +
+  facet_wrap(~chr, nrow = 1, scales = "free_x") ->
   sim.fst.plot
 
-ggsave(sim.fst.plot, file = "sim.fst.plot.intro.pdf")
+ggsave(sim.fst.plot, file = "sim.fst.plot.intro.pdf", h = 3, w = 9)
+
+#####
+foreach(i = 1:dim(real_fst)[1], .combine = "rbind")%do%{
+  message(i)
+  
+  tmp = real_fst[i,]
+  tmp.sim = fst.wins %>% filter(chr == tmp$chr) %>%
+                         filter(winSTA > tmp$winSTA & winEND < tmp$winEND)
+  
+  100-length(tmp.sim$fstm > tmp$fstm)
+                                
+
+}
+

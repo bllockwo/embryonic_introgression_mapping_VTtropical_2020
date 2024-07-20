@@ -21,12 +21,15 @@ args = commandArgs(trailingOnly=TRUE)
 k=as.numeric(args[1])
 print(k)
 
-#### output folder
-oufol = "nonWFintro_output"
+
 #####
 
 ####### localize to folder in Scratch
-setwd("/gpfs2/scratch/jcnunez/fst_brent/simulations")
+setwd("/gpfs2/scratch/jcnunez/fst_brent/simulations_redo")
+root <- "/gpfs2/scratch/jcnunez/fst_brent/simulations_redo"
+#### output folder of the simulations
+oufol = "nonWFintro_output"
+
 ####### Load reco_wins
 reco_wins <- fread("reco_wins.master.txt")
 names(reco_wins) = c("chr", "reco_level", "start", "end", "lenght" , "rho")
@@ -93,7 +96,6 @@ left_join(ad.real, dp.real) -> real.dat.slice
 
 #################
 ### Load sim data
-root <- "/gpfs2/scratch/jcnunez/fst_brent/simulations"
 set <- paste(reco_wins$chr[k], reco_wins$start[k], reco_wins$end[k], "nonWFintro", sep = "_")
 ### add the oufol = "nonWFintro_output" folder
 filesL <- system(paste("ls ", root, "/", oufol, "/",set, sep = "" ), intern = T)
@@ -141,7 +143,7 @@ foreach(fil = filesL,
 }
 
 ##### save simualtion object
-outfol <- "/gpfs2/scratch/jcnunez/fst_brent/simulations/simulated_intro_pools_counts"  
+outfol <- "/gpfs2/scratch/jcnunez/fst_brent/simulations_redo/simulated_intro_pools_counts"  
 save(datLoad, file = paste(outfol, paste(set,".simPoolCounts.all.Rdata", sep = ""), sep ="/"))
 
 
@@ -228,7 +230,7 @@ fst.df.VT8 = foreach(i = 1:100, .combine = "rbind" )%dopar%{
 fst.all.df.joint = rbind(fst.df.VT8,fst.df.SK)
 
 #### --> where the products will be saved
-outfol2 <- "/gpfs2/scratch/jcnunez/fst_brent/simulations/fst_sims_intro_all"  
+outfol2 <- "/gpfs2/scratch/jcnunez/fst_brent/simulations_redo/fst_sims_intro_all"  
 save(fst.all.df.joint, file = paste(outfol2, paste(set,".fst.all.Rdata", sep = ""), sep ="/"))
 
 ####
