@@ -60,7 +60,7 @@ for(i in 1:length(intro_data)){
 
 do.call(rbind, intro_list) -> Intro.AFS.valid
 
-save(Intro.AFS.valid, file = "intro.AF.data.Rbind")
+save(Intro.AFS.valid, file = "intro.AF.data.Rdata")
 
 ###
 
