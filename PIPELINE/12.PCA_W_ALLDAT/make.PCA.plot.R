@@ -42,6 +42,9 @@ chrX="X")
 PCA_lists = list()
 PCA_poly_lists = list()
 
+PCA_all_OBJ = list()
+PCA_poly_OBJ = list()
+
 for(i in 1:length(sets)){
   
   chr_subset = sets[[i]]
@@ -110,6 +113,7 @@ for(i in 1:length(sets)){
   dat_flt[,random_snps] %>%
     PCA(graph = F) ->
     pca.obj.all
+  PCA_all_OBJ[[i]] = pca.obj.all
   
   ####
   pca.obj.all$ind$coord %>%
@@ -144,6 +148,7 @@ for(i in 1:length(sets)){
     PCA(graph = F) ->
     pca.obj.poly
   
+  PCA_poly_OBJ[[i]] = pca.obj.poly
   ####
   pca.obj.poly$ind$coord %>%
     as.data.frame() %>%
@@ -158,7 +163,13 @@ for(i in 1:length(sets)){
 
 pcas_all = do.call(rbind, PCA_lists)
 pcas_poly = do.call(rbind, PCA_poly_lists)
+####
+names(PCA_all_OBJ) = sets
+names(PCA_poly_OBJ) = sets
+save(PCA_all_OBJ, file = "PCA_all_OBJ_eigeninfo.Rdata")
+save(PCA_poly_OBJ, file = "PCA_poly_OBJ_eigeninfo.Rdata")
 
+####
 rbind(pcas_all, pcas_poly) ->
   pca_values_obj
 save(pca_values_obj, file = "pca_values_obj.Rdata")
@@ -178,5 +189,31 @@ ggsave(pca_plot_intro,
        file = "pca_plot_intro.pdf", 
        h = 4, w = 8)
 
+pca_values_obj %>%
+  ggplot(
+    aes(x= Dim.3, y=Dim.4,
+        fill = type,
+        shape = type)
+  ) + geom_point(size = 3.0)  +
+  facet_grid(var~set_info) +
+  scale_shape_manual(values = 21:24) +
+  theme_bw() + theme(legend.position="bottom")->
+  pca_plot_intro34
 
+ggsave(pca_plot_intro34, 
+       file = "pca_plot_intro34.pdf", 
+       h = 4, w = 8)
+######## 
+
+eig_lists = list()
+for(i in 1:length(PCA_all_OBJ)){
+  PCA_all_OBJ[[i]]$eig[1:2,1:2] -> o
+  eig_lists[[i]] = o
+}
+
+eig_poly_lists = list()
+for(i in 1:length(PCA_all_OBJ)){
+  PCA_poly_OBJ[[i]]$eig[1:2,1:2] -> o
+  eig_poly_lists[[i]] = o
+}
 
