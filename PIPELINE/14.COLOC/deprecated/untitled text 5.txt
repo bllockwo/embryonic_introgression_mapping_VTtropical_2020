@@ -1,0 +1,51 @@
+message("real")
+o_real <- foreach(i=1:dim(windows_interest)[1], 
+             .combine="rbind", .errorhandling="remove")%do%{
+  #i <- 1; tmp.ids <- 786996
+  message(paste(i, dim(windows_interest)[1], sep=" / "))
+  
+  ### get allele frequency data
+  af <- getData(variant=snps.dt[chr==windows_interest$CHR[i]][pos==windows_interest$POS_DM6[i]]$variant.id,
+                samps2use =N_Ame_samps)
+  af <- merge(af, samps, by="sampleId")
+  af[,year_pop:=as.factor(interaction(locality, year))]
+  af <- af[!is.na(af_nEff)]
+  af <- af[af_nEff>0 & af_nEff<1]
+  ## af <- getData(variant=2178993)
+  j =0
+  
+  o <- foreach(j=1:nPerm, 
+               .combine="rbind", 
+               .errorhandling="remove")%do%{
+
+
+if(j == 0){
+    tmp <- af
+    p_lrt=-999
+    seas.AIC = -999
+    null.AIC = -999
+    
+    null.real <- glm(cbind(af_nEff*nEff, (1-af_nEff)*nEff) ~ 1,    data = tmp, family= binomial)
+    effect.real <- glm(cbind(af_nEff*nEff, (1-af_nEff)*nEff) ~ lat, data = tmp, family= binomial)
+    t3.sing <- t4.sing <- NA
+    
+    p_lrt=anova(effect.real, null.real, test="Chisq")[2,5]
+    effect.AIC = extractAIC(effect.real)[2]
+    null.AIC = extractAIC(null.real)[2]
+    
+    data.frame(
+    chr=windows_interest$CHR[i],
+    pos=windows_interest$POS_DM6[i],
+    variant.id=snps.dt[chr==windows_interest$CHR[i]][pos==windows_interest$POS_DM6[i]]$variant.id, 
+    perm=j,
+    b_lat=summary(effect.real)$coef[2,1], se_temp=summary(effect.real)$coef[2,2],
+    nObs=dim(af)[1],
+    nFixed=sum(af$af_nEff==0) + sum(af$af_nEff==1),
+    af=mean(af$af_nEff), neff=mean(af$nEff),
+    p_lrt=p_lrt,
+    seas.AIC = effect.AIC,
+    null.AIC = null.AIC
+    ) ### close deliverable
+    } ### close if j ==0
+                 
+} ## grand loop

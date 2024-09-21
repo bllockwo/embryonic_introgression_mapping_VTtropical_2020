@@ -1,0 +1,137 @@
+library(vcfR)
+library(adegenet)
+library(tidyverse)
+library(FactoMineR)
+library(data.table)
+library(foreach)
+library(GenomicRanges)
+library(rtracklayer)
+chain_3to6="/netfiles/nunezlab/D_melanogaster_resources/liftOver_files/dm3ToDm6.over.chain"
+chainObject <- import.chain(chain_3to6)
+ivs <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/Inversion.status.txt")
+names(ivs)[1] = "line"
+ivs_2r = ivs %>% dplyr::select(line, `In(2R)NS`)
+
+###
+
+
+DGRP.vcf <- read.vcfR(
+  "./Embryo.snp.dgrp.recode.vcf")
+
+DGRP.gl <- vcfR2genlight(DGRP.vcf) 
+
+tab(DGRP.gl, NA.method = "asis") %>%
+  as.data.frame() %>%
+  mutate(row.names = row.names(.))  ->
+  DGRP.gl.dat
+  
+  snp_info_dgrp =
+  data.frame(
+  line =rownames(DGRP.gl.dat),
+  snp=DGRP.gl.dat$`2R_16439138_SNP`
+  )
+  
+  
+ex_col = which(colnames(DGRP.gl.dat) == "row.names")
+
+  DGRP.gl.dat[-ex_col] %>%
+  PCA(graph = F) ->
+  pca.info
+ 
+save(pca.info, file = "DGRP.pca.Rdata")
+load("DGRP.pca.Rdata")
+
+    pca.info$ind$coord %>%
+    as.data.frame %>%
+    mutate(line = rownames(.)) %>%
+    left_join(snp_info_dgrp) %>%
+    left_join(ivs_2r) ->
+    DGRP_pca_info
+    
+  DGRP_pca_info %>%
+  ggplot(aes(
+  x=Dim.1,
+  y=Dim.2,
+  shape=`In(2R)NS`,
+  color = as.character(snp)
+  )) + geom_point() ->
+  dgrp_pca_plot
+  
+  ggsave(dgrp_pca_plot, file = "dgrp_pca_plot.pdf")
+  
+#####
+pi.dgrp <- fread("Embryo.snp.dgrp.windowed.pi")
+
+  pi.dgrp %>%
+  ggplot(aes(
+  x=(BIN_START+BIN_END)/2,
+  y=PI,
+  )) + geom_line() +
+  geom_vline(xintercept = 16439138) ->
+  pi.DGRP.plot
+  
+  ggsave(pi.DGRP.plot, file = "pi.DGRP.plot.pdf")
+
+#####
+D.dgrp <- fread("Embryo.snp.dgrp.Tajima.D")
+
+  D.dgrp %>%
+  ggplot(aes(
+  x=BIN_START,
+  y=TajimaD,
+  )) + geom_line() +
+  geom_vline(xintercept = 16439138) ->
+  D.DGRP.plot
+  
+  ggsave( D.DGRP.plot, file = " D.DGRP.plot.pdf")
+
+####
+ld.dgrp <- fread("plink.ld") %>%
+mutate(delta=BP_A-BP_B)
+  
+  ggplot() +
+  geom_point(
+  data=filter(ld.dgrp, R2 > 0.01),
+  aes(
+  x=abs(delta+1),
+  y=R2,
+  )) +
+  geom_smooth(
+  data=filter(ld.dgrp),
+  aes(
+  x=abs(delta+1),
+  y=R2,
+  ), span = 1/100) + 
+  scale_x_continuous(trans='log10') ->
+  LD.DGRP.plot
+  
+  ggsave(LD.DGRP.plot, file = "LD.DGRP.pdf")
+
+# Extracting long distance LD
+
+ld.dgrp %>%
+filter(R2 == 1) %>%
+dplyr::select(chr=CHR_B, dm3.pos=BP_B, delta =delta) ->
+long.ld.partners
+
+lift_over_top_snps=
+foreach(i=1:dim(long.ld.partners)[1],
+        .combine = "rbind")%do%{
+          
+          message(paste(i, dim(long.ld.partners)[1], sep = "|"))
+          tmp = long.ld.partners[i]
+          chr.i=paste("chr", tmp$chr, sep = "")
+          pos.i=tmp$dm3.pos
+          
+          grObject <- GRanges(seqnames=c(chr.i), 
+                              ranges=IRanges(start=pos.i, end=pos.i))
+          results <- as.data.frame(liftOver(grObject, chainObject))
+          
+          data.frame(
+            chr=tmp$chr,
+            dm3.pos=tmp$dm3.pos,
+            dm6.pos=results$start
+          )
+        }
+
+
