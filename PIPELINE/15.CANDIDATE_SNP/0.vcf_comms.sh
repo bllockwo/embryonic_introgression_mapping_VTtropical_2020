@@ -21,9 +21,9 @@ $plink --vcf Embryo.snp.dgrp.recode.vcf \
 --aec \
 --r2 \
 --ld-snp 2R_16439138_SNP \
---ld-window-kb 1000 \
---ld-window 99999  \
 --ld-window-r2 0 \
+--ld-window-kb 9999999 \
+--ld-window 9999999  \
 
 
 vcftools --vcf Embryo.snp.dgrp.recode.vcf \

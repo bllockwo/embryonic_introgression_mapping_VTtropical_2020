@@ -6,17 +6,20 @@ library(data.table)
 library(foreach)
 library(GenomicRanges)
 library(rtracklayer)
+library(SeqArray)
+library(gdsfmt)
+library(SNPRelate)
 chain_3to6="/netfiles/nunezlab/D_melanogaster_resources/liftOver_files/dm3ToDm6.over.chain"
 chainObject <- import.chain(chain_3to6)
 ivs <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/Inversion.status.txt")
 names(ivs)[1] = "line"
 ivs_2r = ivs %>% dplyr::select(line, `In(2R)NS`)
-
+samps <- fread("/netfiles02/lockwood_lab/IntrogressionProject/Population_files/samp.guide.files.introg.txt")
 ###
 
 
 DGRP.vcf <- read.vcfR(
-  "./Embryo.snp.dgrp.recode.vcf")
+  "./Embryo.snp.dgrp.maf.recode.vcf")
 
 DGRP.gl <- vcfR2genlight(DGRP.vcf) 
 
@@ -30,8 +33,21 @@ tab(DGRP.gl, NA.method = "asis") %>%
   line =rownames(DGRP.gl.dat),
   snp=DGRP.gl.dat$`2R_16439138_SNP`
   )
-  
-  
+
+write.table(filter(snp_info_dgrp, snp == 2)$line, 
+			file = "snp2.txt", 
+			append = FALSE, quote = FALSE, sep = "\t",
+            eol = "\n", na = "NA", dec = ".", row.names = FALSE,
+            col.names = FALSE, qmethod = c("escape", "double"),
+            fileEncoding = "")
+write.table(filter(snp_info_dgrp, snp == 0)$line, 
+			file = "snp0.txt", 
+			append = FALSE, quote = FALSE, sep = "\t",
+            eol = "\n", na = "NA", dec = ".", row.names = FALSE,
+            col.names = FALSE, qmethod = c("escape", "double"),
+            fileEncoding = "")
+            
+              
 ex_col = which(colnames(DGRP.gl.dat) == "row.names")
 
   DGRP.gl.dat[-ex_col] %>%
@@ -60,27 +76,33 @@ load("DGRP.pca.Rdata")
   ggsave(dgrp_pca_plot, file = "dgrp_pca_plot.pdf")
   
 #####
-pi.dgrp <- fread("Embryo.snp.dgrp.windowed.pi")
+pi.dgrp0 <- fread("Embryo0.snp.dgrp.windowed.pi") %>% mutate(snp=0)
+pi.dgrp2 <- fread("Embryo2.snp.dgrp.windowed.pi") %>% mutate(snp=2)
 
-  pi.dgrp %>%
+  rbind(pi.dgrp0,pi.dgrp2) %>%
   ggplot(aes(
   x=(BIN_START+BIN_END)/2,
   y=PI,
+  color=as.character(snp)
   )) + geom_line() +
+  xlim(16439138-1e6,16439138+1e6) +
   geom_vline(xintercept = 16439138) ->
   pi.DGRP.plot
   
   ggsave(pi.DGRP.plot, file = "pi.DGRP.plot.pdf")
 
 #####
-D.dgrp <- fread("Embryo.snp.dgrp.Tajima.D")
+D.dgrp0 <- fread("Embryo0.snp.dgrp.Tajima.D") %>% mutate(snp=0)
+D.dgrp2 <- fread("Embryo2.snp.dgrp.Tajima.D") %>% mutate(snp=2)
 
-  D.dgrp %>%
+  rbind(D.dgrp0,D.dgrp2) %>%
   ggplot(aes(
   x=BIN_START,
   y=TajimaD,
+  color=as.character(snp)
   )) + geom_line() +
-  geom_vline(xintercept = 16439138) ->
+  geom_vline(xintercept = 16439138) +
+  xlim(16439138-1e6,16439138+1e6) ->
   D.DGRP.plot
   
   ggsave( D.DGRP.plot, file = " D.DGRP.plot.pdf")
@@ -134,4 +156,22 @@ foreach(i=1:dim(long.ld.partners)[1],
           )
         }
 
+left_join(long.ld.partners, lift_over_top_snps) ->
+long.ld.partners.LifOv
 
+####
+dest1_loc <-"/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/dest.all.PoolSNP.001.50.8Jun2023.norep.AT_EScorrect.ann.gds"
+genofile <- seqOpen(dest1_loc)
+samps <- fread("https://raw.githubusercontent.com/DEST-bio/DESTv2/main/populationInfo/dest_v2.samps_8Jun2023.csv")
+
+snps.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
+                      pos=seqGetData(genofile, "position"),
+                      variant.id=seqGetData(genofile, "variant.id"),
+                      nAlleles=seqNumAllele(genofile),
+                      missing=seqMissing(genofile))
+                      
+snps.dt %>%
+  filter(chr == "2R") %>%
+  filter(pos %in% long.ld.partners.LifOv$dm6.pos) ->
+  snps.of.interest
+  
