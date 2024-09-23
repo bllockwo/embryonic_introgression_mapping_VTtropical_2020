@@ -1,0 +1,35 @@
+2R:20541633-20561633
+
+gen=/netfiles/nunezlab/D_melanogaster_resources/References/holo_dmel_6.12.fa
+
+samtools faidx $gen 2R:20551533-20551733 > TopHaplotype.txt
+
+exonerate=/netfiles/nunezlab/Shared_Resources/Software/exonerate-2.2.0-x86_64/bin/exonerate
+
+query=TopHaplotype.txt
+target=/netfiles/nunezlab/D_melanogaster_resources/Other_drosophilids/Outgroup_D.simulans/D_simulans.fasta
+$exonerate --model est2genome $query $target --maxintron 0 > ExoSearch.txt
+
+#####
+genS=/netfiles/nunezlab/D_melanogaster_resources/Other_drosophilids/Outgroup_D.simulans/D_simulans.fasta
+
+samtools faidx $genS
+ 
+
+samtools faidx $genS sim_2R:14415061-14415262 > HapReg_in_Sim.txt
+
+Loc in Sim: 14415161
+
+#####
+
+Svcf=/netfiles/nunezlab/D_melanogaster_resources/Other_drosophilids/Outgroup_D.simulans/simulans_multisamp_all_chr.vcf
+module load vcftools
+
+vcftools \
+--gzvcf $Svcf \
+--chr chr_2R \
+--from-bp 14415151 \
+--to-bp 14415171 \
+--remove-indels \
+--recode --recode-INFO-all \
+--out Reg.in.SIM
