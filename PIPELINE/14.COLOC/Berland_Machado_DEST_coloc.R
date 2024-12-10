@@ -116,9 +116,9 @@ Machado2021_dm6_srt %>%
   filter(POS == 20551633 & chr == "2R")
 
 #Get_DEST DATA
-dest1_loc <-"/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/dest.all.PoolSNP.001.50.8Jun2023.norep.AT_EScorrect.ann.gds"
-genofile <- seqOpen(dest1_loc)
-samps <- fread("https://raw.githubusercontent.com/DEST-bio/DESTv2/main/populationInfo/dest_v2.samps_8Jun2023.csv")
+dest_loc <-"/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/dest.all.PoolSNP.001.50.24Aug2024.ann.gds"
+genofile <- seqOpen(dest_loc)
+samps <- fread("https://raw.githubusercontent.com/DEST-bio/DESTv2/refs/heads/main/populationInfo/dest_v2.samps_24Aug2024.csv")
 
 snps.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
                       pos=seqGetData(genofile, "position"),
@@ -219,17 +219,17 @@ focal_snp_data %>%
   filter(!is.na(temp.var)) ->
   NAM.weather
 
-cor.test(~`2R_20551633`+humidity.ave, data = NAM.weather)
-cor.test(~`2R_20551633`+humidity.ave, data = filter(NAM.weather, sr_season == "fall"))
-cor.test(~`2R_20551633`+humidity.ave, data = filter(NAM.weather, sr_season == "spring"))
+#cor.test(~`2R_20551633`+humidity.ave, data = NAM.weather)
+#cor.test(~`2R_20551633`+humidity.ave, data = filter(NAM.weather, sr_season == "fall"))
+#cor.test(~`2R_20551633`+humidity.ave, data = filter(NAM.weather, sr_season == "spring"))
 
 cor.test(~`2R_20551633`+precip.ave, data = NAM.weather)
 cor.test(~`2R_20551633`+precip.ave, data = filter(NAM.weather, sr_season == "fall"))
 cor.test(~`2R_20551633`+precip.ave, data = filter(NAM.weather, sr_season == "spring"))
 
-cor.test(~`2R_20551633`+temp.var, data = NAM.weather)
-cor.test(~`2R_20551633`+temp.var, data = filter(NAM.weather, sr_season == "fall"))
-cor.test(~`2R_20551633`+temp.var, data = filter(NAM.weather, sr_season == "spring"))
+#cor.test(~`2R_20551633`+temp.var, data = NAM.weather)
+#cor.test(~`2R_20551633`+temp.var, data = filter(NAM.weather, sr_season == "fall"))
+#cor.test(~`2R_20551633`+temp.var, data = filter(NAM.weather, sr_season == "spring"))
 
 #### to REPRODUCE paper ... use only N. America > -90 long samples (i.e., easter seaboard)
 foreach(var = vars,
@@ -356,40 +356,46 @@ cor.test(~long+`2R_20551633`, data =
            filter(seas.NAM.weather, continent == "Europe"))
 
 #####
-world <- ne_countries(scale = 110, returnclass = "sf") 
+
+#filter(!set %in% c("dgn","dest_plus","DrosEU_3","DrosEU_3_sa") ) %>%
 
 focal_snp_data %>%
   filter(Recommendation == "Pass") %>%
-  filter(!set %in% c("dgn","dest_plus","DrosEU_3","DrosEU_3_sa") ) %>%
+  filter(!is.na(cluster2.0_k4)) %>%
   group_by(city) %>%
   summarise(m.AF = mean(`2R_20551633`, na.rm = T),
             lat=mean(lat),
             long=mean(long),
             cluster2.0_k4 = mean(cluster2.0_k4)
             ) %>%
-  filter(!is.na(m.AF))-> snp_dat_ag
+  filter(!is.na(m.AF) & cluster2.0_k4 %in% 1:4 )-> snp_dat_ag
+
+world <- ne_countries(scale = 110, returnclass = "sf") 
 
   ggplot() +
     geom_sf(data = world, 
             color = "black", 
             fill = "lightgray", linewidth = 0.1) +
-    xlim(-128,36) + ylim(15, 68) +
+   xlim(-128,160) + ylim(-40, 68) +
     geom_point(
     data = snp_dat_ag,
-    size = 3,
+    size = 1.5,
          aes(
     y=lat,
     x=long,
     fill=m.AF,
     shape=as.factor(cluster2.0_k4)
   )) +
-    geom_vline(xintercept = -100) +
-  scale_shape_manual(values = 21:23) +  
+    #geom_vline(xintercept = -100) +
+  scale_shape_manual(values = 21:24) +  
   ggtitle("Frequency of C in 2R:20551633") +
   scale_fill_gradient2(midpoint = 0.5)->
   lat_cline
 
 ggsave(lat_cline, file = "lat_cline.pdf")
+
+###Some plots of latitudinallity
+
 
 ####
 ####

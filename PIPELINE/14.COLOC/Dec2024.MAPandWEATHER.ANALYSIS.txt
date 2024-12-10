@@ -1,0 +1,297 @@
+
+library(tidyverse)
+library(magrittr)
+library(foreach)
+library(vroom)
+library(forcats)
+library(data.table)
+library(gmodels)
+
+library(SeqArray)
+library(gdsfmt)
+library(SNPRelate)
+library(rnaturalearth)
+library(lmtest)
+
+
+
+#Get_DEST DATA
+dest_loc <-"/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/dest.all.PoolSNP.001.50.24Aug2024.ann.gds"
+genofile <- seqOpen(dest_loc)
+samps <- fread("https://raw.githubusercontent.com/DEST-bio/DESTv2/refs/heads/main/populationInfo/dest_v2.samps_24Aug2024.csv")
+
+snps.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
+                      pos=seqGetData(genofile, "position"),
+                      variant.id=seqGetData(genofile, "variant.id"),
+                      nAlleles=seqNumAllele(genofile),
+                      missing=seqMissing(genofile))
+
+snps.dt %>%
+  filter(chr == "2R") %>%
+  filter(pos == 20551633) ->
+  focal
+
+seqSetFilter(genofile,
+             focal$variant.id)
+
+data.table(ann=seqGetData(genofile, "annotation/info/ANN")) ->
+  focal_ann
+
+data.table(ann=seqGetData(genofile, "allele")) ->
+  alleles
+
+
+ad <- seqGetData(genofile, "annotation/format/AD")
+ad <- ad$data
+dp <- seqGetData(genofile, "annotation/format/DP")
+print("Create dat object")
+
+dat = ad/dp
+####
+colnames(dat) <- paste(seqGetData(genofile, "chromosome"), seqGetData(genofile, "position") , 
+                       sep="_")
+rownames(dat) <- seqGetData(genofile, "sample.id")
+
+
+dat %>%
+  as.data.frame() %>%
+  mutate(sampleId = rownames(.)) %>%
+  left_join(samps) ->
+  focal_snp_data
+
+######## now bring in the cross
+###### ====> CROSS
+genofile_cross <- seqOpen("/netfiles02/lockwood_lab/IntrogressionProject/SNPcalling_output/BLockIntro.PoolSeq.PoolSNP.001.5.test.ann.gds")
+seqResetFilter(genofile_cross)
+
+snps.CROSS <- data.table(chr=seqGetData(genofile_cross, "chromosome"),
+                         pos=seqGetData(genofile_cross, "position"),
+                         variant.id=seqGetData(genofile_cross, "variant.id"),
+                         alleles=seqGetData(genofile_cross, "allele"),
+                         nAlleles=seqNumAllele(genofile_cross))
+
+snps.CROSS %>%
+  filter(chr == "2R") %>%
+  filter(pos == 20551633) ->
+  focal.CROSS
+
+seqSetFilter(genofile_cross, variant.id=focal.CROSS$variant.id, 
+             sample.id = c("SKF2_2_1",
+                           "SKF3_3_1",
+                           "SKF_1_1",
+                           "SK_0_1",
+                           "VT8F2_2_1",
+                           "VT8F3_3_1",
+                           "VT8F_1_1",
+                           "VT8_0_1"))
+
+data.table(ann=seqGetData(genofile_cross, "allele")) ->
+  alleles.cross
+
+message("Allele Freqs")
+ad.cross <- seqGetData(genofile_cross, "annotation/format/AD")$data
+dp.cross <- seqGetData(genofile_cross, "annotation/format/DP")
+
+dat.cross <- ad.cross/dp.cross
+colnames(dat.cross) <- paste(seqGetData(genofile_cross, "chromosome"), seqGetData(genofile_cross, "position"), sep="_")
+rownames(dat.cross) <- seqGetData(genofile_cross, "sample.id")
+
+dat.cross %>%
+  as.data.frame() %>%
+  mutate(sampleId = row.names(.)) %>%
+  mutate(x_g = case_when(
+    sampleId %in% c("SK_0_1") ~ "SK",
+    sampleId %in% c("VT8_0_1") ~ "VT",
+    TRUE ~ "cross"
+  )) %>%
+  group_by(x_g) %>%
+  summarise(me.AF.c = mean(`2R_20551633`),
+            #med.AF.c = median(`2R_20551633`),
+            )-> dat.cross.ag
+
+
+#### Correlations with weather
+weather <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/Weather_NASA_power/WeatherData.mgarvin.csv")
+weather %>%
+mutate(Date = as.Date(paste(YEAR,MO,DY, sep = "-"))) ->
+weather.dat
+
+samps %>%
+filter(Recommendation == "Pass") %>%
+filter(!is.na(year)) %>%
+filter(!is.na(min_day)) %>%
+group_by(sampleId) %>%
+mutate(DATE_spec = as.Date(str_split(sampleId, "_")[[1]][5],
+format = "%Y-%m-%d")) ->
+samps
+
+WinSlide = 60
+weather_summaries =
+foreach(i=1:dim(samps)[1], 
+.combine = "rbind")%do%{
+
+print(paste(WinSlide, i, sep = "|"))
+
+samp.i <- samps[i,]
+
+bdate=samp.i$DATE_spec-WinSlide
+fdate=samp.i$DATE_spec
+weather.dat %>%
+filter(city == samp.i$city) %>%
+filter(Date >= bdate & Date <= fdate) %>%
+summarize(
+RH2M_mean =  mean(RH2M),
+T2M_mean = mean(T2M),
+PRECTOTCORR_mean = mean(PRECTOTCORR),
+) -> weather.slice
+data.frame(
+samp.i,
+WinSlide = WinSlide,
+weather.slice)
+
+} ### inner
+
+########
+focal_snp_data %>%
+  filter(Recommendation == "Pass") %>%
+  left_join(weather_summaries) ->
+  focal_snp_data
+  
+write.table(focal_snp_data, 
+            file = "focal_snp_data.txt", 
+            append = FALSE, quote = FALSE, sep = "\t",
+            eol = "\n", na = "NA", dec = ".", row.names = FALSE,
+            col.names = TRUE, qmethod = c("escape", "double"),
+            fileEncoding = "")
+            
+focal_snp_data <- fread("focal_snp_data.txt")
+####
+
+focal_snp_data %>%
+group_by(continent) %>%
+summarize(m.Glob.AF = mean(`2R_20551633`, na.rm = T))
+
+
+#####
+focal_snp_data %>%
+filter(continent == "North_America") %>%
+mutate(city_clus = paste(city, cluster2.0_k4, sep = "_")) %>%
+group_by(city_clus, continent) %>%
+summarize(
+m.Lat=mean(lat),
+m.Long=mean(long),
+m.AF=mean(`2R_20551633`),
+cluster = mean(cluster2.0_k4)) %>%
+filter(!is.na(m.AF)) %>%
+data.frame -> NAMLAt_AF
+
+focal_snp_data %>%
+filter(continent == "South_America") %>%
+mutate(city_clus = paste(city, cluster2.0_k4, sep = "_")) %>%
+group_by(city_clus, continent) %>%
+summarize(
+m.Lat=mean(lat),
+m.Long=mean(long),
+m.AF=mean(`2R_20551633`),
+cluster = mean(cluster2.0_k4)) %>%
+filter(!is.na(m.AF)) %>%
+data.frame -> SoALAt_AF
+
+###
+focal_snp_data %>%
+filter(continent == "Europe") %>%
+mutate(city_clus = paste(city, cluster2.0_k4, sep = "_")) %>%
+group_by(city_clus, continent) %>%
+summarize(
+m.Lat=mean(lat),
+m.Long=mean(long),
+m.AF=mean(`2R_20551633`),
+cluster = mean(cluster2.0_k4)) %>%
+filter(!is.na(m.AF)) %>%
+data.frame -> EULAt_AF
+
+focal_snp_data %>%
+filter(continent == "Africa") %>%
+filter(cluster2.0_k4 == 1) %>%
+mutate(city_clus = paste(city, cluster2.0_k4, sep = "_")) %>%
+group_by(city_clus, continent) %>%
+summarize(
+m.Lat=mean(lat),
+m.Long=mean(long),
+m.AF=mean(`2R_20551633`),
+cluster = mean(cluster2.0_k4)) %>%
+filter(!is.na(m.AF)) %>%
+data.frame -> AFRLAt_AF
+
+
+###
+cor.test(~m.Lat+m.AF, data = NAMLAt_AF)
+cor.test(~m.Lat+m.AF, data = SoALAt_AF)
+cor.test(~m.Lat+m.AF, data = filter(EULAt_AF, cluster == 2))
+cor.test(~m.Lat+m.AF, data = filter(EULAt_AF, cluster == 3))
+cor.test(~m.Lat+m.AF, data = AFRLAt_AF)
+
+###
+rbind(
+NAMLAt_AF,
+SoALAt_AF,
+EULAt_AF
+) %>%
+as.data.frame %>%
+ggplot(aes(
+x=m.Lat ,  
+y=m.AF,
+color=continent
+)) + geom_point() +
+geom_smooth(method = "lm") +
+theme_bw() +
+facet_grid(~cluster, scale = "free_x") ->
+lat_corr_EULAt_AF
+
+ggsave(lat_corr_EULAt_AF, file = "lat_corr_EULAt_AF.pdf",
+w= 9, h = 3)
+
+####
+
+focal_snp_data %>%
+filter(set %in% c("DrosEU" , "DrosEU_3", "DrosEU_3_sa", "DrosRTEC", "cville")) %>%
+#filter(sr_season != "frost") %>%
+filter(continent %in% c("North_America","South_America")) %>%
+group_by(city, continent,
+#sr_season
+) %>%
+summarize(
+m.Precip = mean(PRECTOTCORR_mean),
+m.AF = mean(`2R_20551633`)
+) %>%
+ggplot(aes(
+x=m.Precip ,  
+y=m.AF,
+#color=sr_season
+)) + geom_point() +
+geom_smooth(method = "lm") +
+facet_grid(~continent) +
+ theme_bw() + ylim(0,0.8) ->
+PRECTOTCORR_mean_plot
+
+ggsave(PRECTOTCORR_mean_plot, file = "PRECTOTCORR_mean_plot.pdf",
+w= 6, h = 3)
+
+
+focal_snp_data %>%
+filter(set %in% c("DrosEU" , "DrosEU_3", "DrosEU_3_sa", "DrosRTEC", "cville")) %>%
+filter(continent %in% c("North_America","South_America")) %>%
+ggplot(aes(
+x=PRECTOTCORR_mean ,  
+y=`2R_20551633`,
+#color=sr_season
+)) + geom_point() +
+geom_smooth(method = "lm") +
+facet_grid(~continent) +
+scale_x_continuous(trans='log10') +
+ theme_bw() + ylim(0,0.8) ->
+PRECTOTCORR_mean_plot_raw
+
+ggsave(PRECTOTCORR_mean_plot_raw, file = "PRECTOTCORR_mean_plot_raw.pdf",
+w= 5, h = 5)
+
