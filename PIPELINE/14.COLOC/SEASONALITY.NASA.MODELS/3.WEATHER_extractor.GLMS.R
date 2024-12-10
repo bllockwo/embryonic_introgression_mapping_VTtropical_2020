@@ -342,7 +342,11 @@ rbind(target_model, mod_o_perms) -> mods_ploting
     grand_plot
   ggsave(grand_plot, file = "grand_plot.pdf", w= 6, h = 2.5)
 
+cor.test(~sqrt(T2M_sd)+af, data= filter(data_downstream, city == "Charlottesville" & year %in% 2016:2018))
+cor.test(~sqrt(T2M_sd)+af, data= filter(data_downstream, city == "Odesa"))
+cor.test(~sqrt(T2M_sd)+af, data= filter(data_downstream, city == "Yesiloz"))
 
+cor.test(~sqrt(T2M_32c)+af, data= filter(data_downstream, city == "Charlottesville" & year %in% 2016:2018))
 
 ####
 samps %>%
