@@ -15,6 +15,18 @@ library(SNPRelate)
 library(rnaturalearth)
 library(lmtest)
 
+library(sf)
+library(tidycensus)
+library(corrr)
+library(tmap)
+library(spdep)
+library(tigris)
+#library(rmapshaper)
+library(flextable)
+library(car)
+library(spatialreg)
+library(stargazer)
+
 ####
 #Get_DEST DATA
 dest_loc <-"/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/dest.all.PoolSNP.001.50.24Aug2024.ann.gds"
@@ -142,13 +154,24 @@ foreach(k=0:100,
         .errorhandling = "remove")%do%{
         message(paste(k,i, sep = "|"))
         
+          data=filter(AF_res.melt,
+                      variable == i) ->
+            dat.tmp
+          
           if(k==0){
           lm(AF_res ~ value, 
-             data=filter(AF_res.melt,
-                         variable == i)) %>%
+             data = dat.tmp) -> mod.o
+            
+            dat.tmp %<>%
+              mutate(olsresid = resid(mod.o))
+            
+            
+            mod.o  %>%
             summary ->
             mod_tmp
           
+             
+            
           data.frame(
             mod=i,
             p_val=mod_tmp$coefficients[2,4],

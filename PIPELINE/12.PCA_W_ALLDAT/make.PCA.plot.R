@@ -45,6 +45,7 @@ PCA_poly_lists = list()
 PCA_all_OBJ = list()
 PCA_poly_OBJ = list()
 
+### Do PCAs
 for(i in 1:length(sets)){
   
   chr_subset = sets[[i]]
@@ -99,7 +100,16 @@ for(i in 1:length(sets)){
   
   dat_t %>%
     .[which(MeanAF > 0.1),] ->
+    #.[which(MeanAF != 1),] %>%
+    #.[which(MeanAF != 0),] ->
     dat_t_flt
+  
+  #dat_t_flt %>% dim
+  #dat_t_flt[grep("2L", rownames(dat_t_flt)),] %>% dim
+  #dat_t_flt[grep("2R", rownames(dat_t_flt)),] %>% dim
+  #dat_t_flt[grep("3L", rownames(dat_t_flt)),] %>% dim
+  #dat_t_flt[grep("3R", rownames(dat_t_flt)),] %>% dim
+  #dat_t_flt[grep("X", rownames(dat_t_flt)),] %>% dim
   
   dat_t_flt %>%
     dplyr::select(!c(MeanAF,MinAF,MeanAF,MinAF,MaxAF)) %>% 
@@ -217,3 +227,151 @@ for(i in 1:length(PCA_all_OBJ)){
   eig_poly_lists[[i]] = o
 }
 
+
+###### SLIDING WINDOW PCA ######
+################################
+
+chr_subset = c("2L", "2R", "3L", "3R", "X")
+
+seqResetFilter(genofile)
+snps.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
+                      pos=seqGetData(genofile, "position"),
+                      variant.id=seqGetData(genofile, "variant.id"),
+                      nAlleles=seqNumAllele(genofile),
+                      missing=seqMissing(genofile))
+
+snps.dt <- snps.dt[nAlleles==2]
+seqSetFilter(genofile, variant.id=snps.dt$variant.id, sample.id = samps.flt$Sample_id)
+snps.dt[,af:=seqGetData(genofile, "annotation/info/AF")$data]
+snps.dt[chr%in%c(
+  chr_subset)] ->
+    flt.snp.dt
+
+win.bp <- 1e5
+step.bp <- 5e4
+
+setDT(flt.snp.dt)
+setkey(flt.snp.dt, "chr")
+
+## prepare windows
+wins <- foreach(chr.i=c("2L","2R", "3L", "3R", "X"),
+                .combine="rbind", 
+                .errorhandling="remove")%do%{
+                  
+                  tmp <- flt.snp.dt %>%
+                    filter(chr == chr.i)
+                  
+                  data.table(chr=chr.i,
+                             start=seq(from=min(tmp$pos), to=max(tmp$pos)-win.bp, by=step.bp),
+                             end=seq(from=min(tmp$pos), to=max(tmp$pos)-win.bp, by=step.bp) + win.bp)
+                }
+
+wins[,i:=1:dim(wins)[1]]
+dim(wins)
+
+#### LOOP OVER WINDOWs
+euc_dist <- function(x1, x2){
+  return(sqrt(sum((x1 - x2)^2)))
+}
+
+euc_analysis <- foreach(win.i=1:dim(wins)[1],
+                   .errorhandling = "remove",
+                   .combine = "rbind"
+)%do%{
+  message(paste(win.i, dim(wins)[1], sep=" / "))
+  
+  seqResetFilter(genofile)
+  win.tmp <- flt.snp.dt %>%
+    filter(chr == wins[win.i]$chr) %>%
+    filter(pos %in% wins[win.i]$start:wins[win.i]$end)
+  
+  seqSetFilter(genofile,
+               variant.id=win.tmp$variant.id, 
+               sample.id = samps.flt$Sample_id)
+
+  ### get allele frequency data
+  ad <- seqGetData(genofile, "annotation/format/AD")
+  dp <- seqGetData(genofile, "annotation/format/DP")
+  
+  dat <- ad$data/dp
+  #dim(dat)  
+  
+  colnames(dat) <- paste(seqGetData(genofile, "chromosome"), seqGetData(genofile, "position"), sep="_")
+  rownames(dat) <- seqGetData(genofile, "sample.id")
+  
+  colMeans(dat, na.rm = T) -> filter.obj
+  select_snps <- which(filter.obj > 0 & filter.obj < 1)
+  
+  ####
+  dat[,select_snps] %>%
+  PCA(graph = F) ->
+    pca.obj.tmp
+  ####
+  pca.obj.tmp$ind$coord %>%
+    as.data.frame() %>%
+    mutate(Sample_id = rownames(.)) %>%
+    left_join(samps.flt) ->
+    pc.projs
+  
+  #Euclidean vs VT
+  foreach(parent.i=pc.projs$Pop[c(4,8)],
+          .errorhandling = "remove",
+          .combine = "rbind"
+  )%do%{
+  foreach(samp.i=pc.projs$Pop[-c(4,8)],
+          .errorhandling = "remove",
+          .combine = "rbind"
+  )%do%{
+    pc.projs %>%
+      filter(Pop == parent.i) -> parent
+    parent$Dim.1 -> xp
+    parent$Dim.2 -> yp
+    pc.projs %>%
+      filter(Pop == samp.i) -> F16
+    F16$Dim.1 -> xo
+    F16$Dim.2 -> yo
+    euc_dist(c(xp, xo),c(yp, yo)) -> EUd
+    
+    o=
+    data.frame(
+      parent=parent.i,
+      F16=samp.i,
+      eud=EUd,
+      chr = wins[win.i]$chr,
+      win_start = wins[win.i]$start,
+      win_end = wins[win.i]$end)
+      return(o)
+  }}
+
+}
+
+save(euc_analysis, file = "euc_analysis.Rdata")
+
+euc_analysis %>%
+  dcast(chr+win_start+win_end+F16~parent, 
+        value.var = "eud") %>% 
+  mutate(EU_Ratio = SK/VT8) %>%
+  group_by(chr,win_start,win_end) %>%
+  summarise(mean_EU_rat = mean(EU_Ratio)) ->
+  dat_ucD
+
+dat_ucD %>%
+  ggplot(aes(
+    x=(win_start+win_end)/2e6,
+    y=log2(mean_EU_rat),
+  )) +
+  geom_hline(yintercept = 0) +
+  geom_line(linewidth=0.4) +
+  theme_bw() +
+  facet_grid(.~chr, scales = "free_x") ->
+  plot_euc
+
+ggsave(plot_euc, file = "plot_euc.pdf",
+       w=7, h = 2.5)
+  
+###
+dat_ucD %>%
+  filter(mean_EU_rat < 1) %>%
+  group_by(chr) %>%
+  summarise(N = n())
+  
