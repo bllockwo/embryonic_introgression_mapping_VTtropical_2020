@@ -8,6 +8,7 @@ library(forcats)
 library(data.table)
 library(gmodels)
 library(ggrepel)
+library(ape)
 
 library(SeqArray)
 library(gdsfmt)
@@ -15,17 +16,17 @@ library(SNPRelate)
 library(rnaturalearth)
 library(lmtest)
 
-library(sf)
-library(tidycensus)
-library(corrr)
-library(tmap)
-library(spdep)
-library(tigris)
-#library(rmapshaper)
-library(flextable)
-library(car)
-library(spatialreg)
-library(stargazer)
+#library(sf)
+#library(tidycensus)
+#library(corrr)
+#library(tmap)
+#library(spdep)
+#library(tigris)
+##library(rmapshaper)
+#library(flextable)
+#library(car)
+#library(spatialreg)
+#library(stargazer)
 
 ####
 #Get_DEST DATA
@@ -86,8 +87,6 @@ lnadmix %>%
 o_dat %>%
   left_join(focal_snp_data, 
             by = c("sampleId","lat", "long")) %>% 
-  #filter(set %in% c("DrosRTEC","DrosEU")) %>%
-  #filter(long > -87) %>%
   filter(!is.na(`2R_20551633`))  -> data_merged
  
 #### Bringin in weather data
@@ -162,16 +161,10 @@ foreach(k=0:100,
           lm(AF_res ~ value, 
              data = dat.tmp) -> mod.o
             
-            dat.tmp %<>%
-              mutate(olsresid = resid(mod.o))
-            
-            
             mod.o  %>%
             summary ->
             mod_tmp
           
-             
-            
           data.frame(
             mod=i,
             p_val=mod_tmp$coefficients[2,4],
@@ -207,19 +200,11 @@ foreach(k=0:100,
         }#i
         }#k
 
+save(mods, file = "clinal.mods.Rdata")
 mods$perm %>% table
-##mod        p_val           est          err
-##1           m_RH2M 1.029516e-01 -0.0023099395 0.0014069957
-##2            m_T2M 4.619654e-01  0.0018447788 0.0025007042
-##3    m_PRECTOTCORR 2.378600e-03 -1.2083285301 0.3902215942
-##4           v_RH2M 2.183403e-01  0.0029965146 0.0024230479
-##5            v_T2M 8.486855e-01  0.0009947087 0.0052035466
-##6    v_PRECTOTCORR 6.993836e-05 -0.4762674996 0.1160825672
-##7         max_RH2M 9.039720e-01 -0.0012029421 0.0099523177
-##8          max_T2M 7.415185e-01 -0.0010088598 0.0030523748
-##9  max_PRECTOTCORR 4.828560e-01 -0.0006085881 0.0008649063
-##10        min_RH2M 5.387704e-02 -0.0024285598 0.0012488211
-##11         min_T2M 7.077353e-01  0.0003416055 0.0009092832
+
+mods %>%
+  filter(perm == 0)
 
   ggplot() +
   geom_boxplot(data = filter(mods,perm !=0 ),
@@ -246,7 +231,40 @@ mods %>%
   filter(mod == "v_PRECTOTCORR") %>%
   filter(perm != 0) %>% .$p_val -> permsda
 
+
+### Perms - perfirmance
 sum(permsda < realda)
+
+### nominal P value ANOVa
+filter(AF_res.melt,
+       variable == "v_PRECTOTCORR") ->
+  dat.v_PRECTOTCORR
+
+lm(AF_res ~ value, 
+   data = dat.v_PRECTOTCORR) -> mod.precip
+anova(mod.precip)
+
+### Calculate morans' I
+data_merged %>%
+  group_by(city) %>%
+  summarise(Lat = mean(lat),
+            Long=mean(long),
+  ) -> city.lat.long
+
+left_join(dat.v_PRECTOTCORR, select(city.lat.long, city, Lat, Long) ) ->
+  dat.v_PRECTOTCORR.lat.long
+
+snp.dists <- as.matrix(dist(cbind(dat.v_PRECTOTCORR.lat.long$Long,
+                                  dat.v_PRECTOTCORR.lat.long$Lat)))
+
+snp.dists.inv <- 1/snp.dists
+diag(snp.dists.inv) <- 0
+
+snp.dists.inv[1:5, 1:5]
+
+Moran.I(dat.v_PRECTOTCORR.lat.long$AF_res, snp.dists.inv)
+
+
 
 ####
 AF_res.melt %>%
@@ -302,5 +320,124 @@ AF_res.melt %>%
   ggsave(cline_weather, file = "cline_weather.pdf",
          h=4, w= 4.0)
   
+#### CLINALITY ANALYSIS IN EUROPE AND AFRICA
+#### CLINALITY ANALYSIS IN EUROPE AND AFRICA
+#### CLINALITY ANALYSIS IN EUROPE AND AFRICA
+#### CLINALITY ANALYSIS IN EUROPE AND AFRICA
+#### CLINALITY ANALYSIS IN EUROPE AND AFRICA
+  focal_snp_data %>%
+    filter(continent == "Europe") %>%
+    group_by(city,cluster1.0) %>%
+    summarise(
+      m.AF = mean(`2R_20551633`, na.rm = T),
+      m.Lat = mean(lat),
+      m.Long = mean(long)
+    ) %>%
+    filter(!is.na(cluster1.0))-> Eu_summaries
+
+cor.test(~m.Lat+m.AF, data = Eu_summaries)
+cor.test(~m.Long+m.AF, data = Eu_summaries)
+
   
+lm(m.AF ~ cluster1.0, data=Eu_summaries) ->
+  EU_clust_model
+anova(EU_clust_model)
+summary(EU_clust_model)
+
+Eu_summaries %>%
+  as.data.frame() %>%
+  mutate(AF_res = EU_clust_model$residuals) ->
+  Eu_summaries.wag
+
+select_cols = c("m_RH2M","m_T2M","m_PRECTOTCORR","v_RH2M",
+                "v_T2M", "v_PRECTOTCORR", "max_RH2M",
+                "max_T2M", "max_PRECTOTCORR", "min_RH2M",
+                "min_T2M", "min_PRECTOTCORR",
+                "AF_res","city")
+
+Eu_summaries.wag%>%
+  left_join(weather.ag, by = "city") %>%
+  .[,select_cols] %>%
+  .[complete.cases(.),] %>% 
+  melt(id = c("AF_res","city")) ->
+  Eu_summaries.melt
+
+mods.EU =
+  foreach(k=0:100,
+          .combine = "rbind",
+          .errorhandling = "remove")%do%{
+            foreach(i=select_cols[1:12],
+                    .combine = "rbind",
+                    .errorhandling = "remove")%do%{
+                      message(paste(k,i, sep = "|"))
+                      
+                      data=filter(Eu_summaries.melt,
+                                  variable == i) ->
+                        dat.tmp
+                      
+                      if(k==0){
+                        lm(AF_res ~ value, 
+                           data = dat.tmp) -> mod.o
+                        
+                        mod.o  %>%
+                          summary ->
+                          mod_tmp
+                        
+                        data.frame(
+                          mod=i,
+                          p_val=mod_tmp$coefficients[2,4],
+                          est=mod_tmp$coefficients[2,1],
+                          err=mod_tmp$coefficients[2,2],
+                          perm=k
+                        ) -> o
+                        return(o)
+                      } # k == 1
+                      
+                      if(k!=0){
+                        
+                        filter(AF_res.melt,
+                               variable == i) %>%
+                          mutate(value.random = sample(value)) ->
+                          tmp.random
+                        
+                        lm(AF_res ~ value.random, 
+                           data=tmp.random) %>%
+                          summary ->
+                          mod_tmp
+                        
+                        data.frame(
+                          mod=i,
+                          p_val=mod_tmp$coefficients[2,4],
+                          est=mod_tmp$coefficients[2,1],
+                          err=mod_tmp$coefficients[2,2],
+                          perm=k
+                        ) -> o
+                        return(o)
+                      } # if k > 1
+                      
+                    }#i
+          }#k
+
+save(mods.EU, file = "clinal.modsEU.Rdata")
+mods.EU$perm %>% table
+
+mods.EU %>%
+  filter(perm == 0)
+
+ggplot() +
+  geom_boxplot(data = filter(mods.EU,perm !=0 ),
+               aes(
+                 x=mod,
+                 y=-log10(p_val)
+               ))+
+  geom_point(data = filter(mods.EU,perm ==0 ),
+             aes(
+               x=mod,
+               y=-log10(p_val)
+             ), size = 3, color = "red") +
+  coord_flip()->
+  fig_ests.mods.EU
+
+ggsave(fig_ests.mods.EU, file = "fig_ests.mods.EU.pdf",
+       w= 4, h=3.4)
 
