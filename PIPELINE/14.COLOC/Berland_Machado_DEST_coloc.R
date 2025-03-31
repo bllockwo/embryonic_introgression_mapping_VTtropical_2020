@@ -12,6 +12,8 @@ library(SNPRelate)
 library(rnaturalearth)
 library(lmtest)
 
+library(VennDiagram)
+
 load("/netfiles02/lockwood_lab/IntrogressionProject/FET_output/Brent_checkpoint_coloc.Rdata")
 ### load "genes_in_area"          "putative_targets.annot"
 ### generated in ... PIPELINE/9.2.FET.summaries/Brents_revisiting_analysis.R 
@@ -469,4 +471,48 @@ ggplot() +
 ggsave(seas_cville, file = "seas_cville.pdf",
        w=9, h = 2.5)
 
-  
+
+###### In this analysis I will ask how many SNPs overall show colocalization.
+###### Done on Mar 27, 2025
+all_FET <-"/netfiles02/lockwood_lab/IntrogressionProject/FET_output/Fisher_test_results_All_crosses.txt"
+all_FET_d <- fread(all_FET)
+names(all_FET_d)[1] = "chr"
+all_FET_d %<>%
+  mutate(SNP_id_dm6 = paste(chr,POS, sep = "_")) %>%
+  mutate(pval.adj = p.adjust(sk_all_f.test_pval, 'bonferroni'))
+Machado2021_dm6_srt <- get(load("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2021.Machado/Machado2021_dm6_srt.Rdata"))
+bergland2014_dm6_srt <- get(load("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2014.Bergland/bergland2014_dm6_srt.Rdata"))
+names(bergland2014_dm6_srt)[3] = "POS"
+names(Machado2021_dm6_srt)[3] = "POS"
+
+
+bergland2014_dm6_srt %>%
+  filter(clinal.q < 0.05) %>%
+  .$SNP_id_dm6 -> clinal_hits
+
+Machado2021_dm6_srt %>%
+  filter(seas.p < 0.004) %>%
+  .$SNP_id_dm6 -> seas_hits
+sum(clinal_hits %in% seas_hits)
+
+all_FET_d %>%
+  filter(pval.adj < 0.01) %>%
+  .$SNP_id_dm6 -> intro_hits
+
+x <- list(cline=clinal_hits , 
+          seas=seas_hits , 
+          intro=intro_hits)
+
+
+v0 <- venn.diagram( x, filename=NULL, 
+                    fill = c("red", "blue", "green"),
+                    alpha = 0.50,
+                    col = "transparent")
+
+pdf("venn.pdf")
+grid.draw(v0)
+dev.off()
+
+overlaps <- calculate.overlap(x)
+overlaps$a5
+

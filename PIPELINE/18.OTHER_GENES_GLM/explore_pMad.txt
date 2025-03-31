@@ -1,0 +1,141 @@
+### Explore pMad and Medea
+
+### library
+  library(ggplot2)
+  library(data.table)
+  library(tidyverse)
+  library(foreach)
+  library(SeqArray)
+  
+###
+glm.object.2L <- get(load("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2024.Nunez_et_al_Genetics/Revision_Best_Models/temp.max;2;5.Cville.v2.glmRNP.Rdata"))
+glm.window.2L <- get(load("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2024.Nunez_et_al_Genetics/Window_Enrichment_objects/Window_analysis_temp.max;2;5.Cville.Rdata"))
+
+####
+
+glm.window.2L %>%
+group_by(perm==0, win, pos_min, pos_max) %>%
+summarize(m.rnp.pr = quantile(rnp.binom.p, 0.05)) %>%
+ggplot(aes(
+x=(pos_min+pos_max)/2e6,
+y=-log10(m.rnp.pr),
+color=`perm == 0`
+)) + geom_vline(xintercept = 2225744/1e6) +
+geom_vline(xintercept = 13154180/1e6) +
+ geom_line() +
+ geom_vline(xintercept =(3146056)/1e6, color = "red") +
+  geom_vline(xintercept =(3159643)/1e6, color = "blue") ->
+wenrih_plot
+ggsave(wenrih_plot, file = "wenrih_plot.pdf", h = 3, w = 9)
+
+
+glm.window.2L %>%
+group_by(perm==0, win, pos_min, pos_max) %>%
+summarize(m.rnp.pr = quantile(rnp.binom.p, 0.05)) %>%
+filter(pos_min > 3146056-1000000) %>%
+filter(pos_max < 3159643+1000000) %>% 
+ggplot(aes(
+x=(pos_min+pos_max)/2e6,
+y=-log10(m.rnp.pr),
+color=`perm == 0`
+)) +
+ geom_line() +
+ geom_vline(xintercept =(3146056)/1e6, color = "red") +
+  geom_vline(xintercept =(3159643)/1e6, color = "blue")->
+wenrih_plot2
+ggsave(wenrih_plot2, file = "wenrih_plot2.pdf", h = 3, w = 9)
+
+####
+glm.object.2L %>% 
+filter(chr == "2L") %>%
+filter(pos > 3146056) %>%
+filter(pos < 3159643) %>%
+group_by(perm==0, pos) %>%
+summarize(m.rnp.pr = quantile(p_lrt.x, 0.05)) ->
+pMad.GLM
+
+
+pMad.GLM %>%
+ggplot(aes(
+x=pos/1e6,
+y=-log10(m.rnp.pr),
+color=`perm == 0`
+)) +
+ geom_line() ->
+pMad
+ggsave(pMad, file = "pMad.pdf", h = 3, w = 9)
+
+
+pMad.GLM %>%
+dcast(pos~`perm == 0`) %>%
+filter(`FALSE` > `TRUE` ) %>%
+.$pos -> pMad.seas.snps
+
+####
+### open GDS for common SNPs (PoolSNP)
+genofile <- seqOpen("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2024.Nunez_et_al_Genetics/dest.all.PoolSNP.001.50.10Mar2021.ann.gds", allow.duplicate=T)
+snp.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
+                      pos=seqGetData(genofile, "position"),
+                      variant.id=seqGetData(genofile, "variant.id"),
+                      nAlleles=seqNumAllele(genofile),
+                      missing=seqMissing(genofile))
+samps <- fread("https://raw.githubusercontent.com/DEST-bio/DESTv2/main/populationInfo/dest_v2.samps_24Aug2024.csv")
+samps %>%
+filter(set == "cville") ->
+samps.cville
+
+
+
+getData <- function(chr="2L", start=14617051, end=14617051, samplesUse=samps$sampleId) {
+      # chr="2L"; start=14617051; end=14617051; samplesUse=samps.cville$sampleId_orig
+
+      ### filter to target
+        snp.tmp <- data.table(chr=chr, pos=start:end)
+        setkey(snp.tmp, chr, pos)
+        setkey(snp.dt, chr, pos)
+        
+        snp.dt %>% 
+        filter(chr == snp.tmp$chr, pos == snp.tmp$pos) ->
+        tmpinfo
+        
+        seqSetFilter(genofile, 
+        variant.id=tmpinfo$variant.id, 
+        sample.id=samplesUse, verbose=T)
+
+      ### get frequencies
+        message("Allele Freqs")
+
+        ad <- seqGetData(genofile, "annotation/format/AD")
+        dp <- seqGetData(genofile, "annotation/format/DP")
+
+        if(class(dp)[1]!="SeqVarDataList") {
+          dp.list <- list()
+          dp.list$data <- dp
+          dp <- dp.list
+        }
+
+        af <- data.table(ad=expand.grid(ad$data)[,1],
+                         dp=expand.grid(dp$data)[,1],
+                         sampleId=rep(seqGetData(genofile, "sample.id"), dim(ad$data)[2]),
+                         variant.id=rep(seqGetData(genofile, "variant.id"), each=dim(ad$data)[1]))
+
+      ### tack them together
+        message("merge")
+        #afi <- merge(af, snp.dt1.an, by="variant.id")
+        afi <- merge(af, snp.dt, by.x="variant.id", by.y="id")
+
+        afi[,af:=ad/dp]
+
+      ### calculate effective read-depth
+        afis <- merge(afi, samps, by="sampleId")
+
+        afis[chr=="X", nEff:=round((dp*nFlies - 1)/(dp+nFlies))]
+        afis[chr!="X", nEff:=round((dp*2*nFlies - 1)/(dp+2*nFlies))]
+        afis[,af_nEff:=round(af*nEff)/nEff]
+
+      ### return
+        #afis[,-c("n"), with=F]
+        afis[,c("sampleId", "af_nEff", "nEff"), with=F]
+
+    }
+
