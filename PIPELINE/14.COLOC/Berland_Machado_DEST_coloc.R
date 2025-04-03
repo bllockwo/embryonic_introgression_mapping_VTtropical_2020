@@ -479,11 +479,39 @@ all_FET_d <- fread(all_FET)
 names(all_FET_d)[1] = "chr"
 all_FET_d %<>%
   mutate(SNP_id_dm6 = paste(chr,POS, sep = "_")) %>%
-  mutate(pval.adj = p.adjust(sk_all_f.test_pval, 'bonferroni'))
+  mutate(pval.adj_all = p.adjust(sk_all_f.test_pval, 'bonferroni'),
+         pval.adj_skf1 = p.adjust(skf1_f.test_pval, 'bonferroni'),
+         pval.adj_skf2 = p.adjust(skf2_f.test_pval, 'bonferroni'), 
+         pval.adj_skf3 = p.adjust(skf3_f.test_pval, 'bonferroni'),
+         pval.adj_vt8f1 = p.adjust(vt8f1_f.test_pval, 'bonferroni'), 
+         pval.adj_vt8f2 = p.adjust(vt8f2_f.test_pval, 'bonferroni'), 
+         pval.adj_vt8f3 = p.adjust(vt8f3_f.test_pval, 'bonferroni'))
+
+all_FET_d %>%
+  filter(pval.adj_all  < 0.01) 
+
+all_FET_d %>%
+  filter(pval.adj_all  < 0.01) %>%
+  group_by(chr) %>%
+  summarise(N = n())
+
+all_FET_d %>%
+  filter(chr == "2R") %>%
+  filter(POS > 19115753 & POS < 20615753) %>%
+  filter(pval.adj_all  < 0.01)
+all_FET_d %>%
+  filter(chr == "X") %>%
+  filter(POS > 15123410 & POS < 16123410) %>%
+  filter(pval.adj_all  < 0.01)
+
+
+
+
 Machado2021_dm6_srt <- get(load("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2021.Machado/Machado2021_dm6_srt.Rdata"))
 bergland2014_dm6_srt <- get(load("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2014.Bergland/bergland2014_dm6_srt.Rdata"))
 names(bergland2014_dm6_srt)[3] = "POS"
 names(Machado2021_dm6_srt)[3] = "POS"
+
 
 
 bergland2014_dm6_srt %>%
