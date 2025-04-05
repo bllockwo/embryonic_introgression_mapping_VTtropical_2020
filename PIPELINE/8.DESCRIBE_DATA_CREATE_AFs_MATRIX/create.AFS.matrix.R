@@ -107,3 +107,11 @@ dat_t.nofix %>%
 
 dat_t.nofix.meta %>% .$chr %>% table
 
+##### Frequency of SP70
+dat_t.nofix.meta %>%
+  filter(chr == "2R") %>%
+  filter(pos == 20551633)
+
+
+
+
