@@ -1,0 +1,11 @@
+gff=/netfiles/nunezlab/D_melanogaster_resources/Annotations/GCF_000001215.4_Release_6_plus_ISO1_MT_genomic.gff
+
+
+for taget in "CG13430" "CG18065" "CG30148" "Obp57e" "Obp57d" "Cpr57A"
+do
+grep ${taget} $gff | \
+awk -v var="${taget}" 'BEGIN{OFS="\t"} {print $0, (FNR>1 ? var : var)}' \
+> ${taget}.txt
+done
+
+
