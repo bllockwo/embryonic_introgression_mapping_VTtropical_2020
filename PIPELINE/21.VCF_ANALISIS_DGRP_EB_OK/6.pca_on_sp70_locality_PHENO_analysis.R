@@ -1,5 +1,9 @@
 ## PLOT PCA
 #Load libraries
+
+##### THIS CODE HAS A CHECKPOINT FOR GRAPHING!!! se below... 
+
+library(scales)
 library(tidyverse)
 library(vcfR)
 library(data.table)
@@ -21,7 +25,10 @@ library(fastglm)
 library(lmtest )
 library(gmodels)
 library(lme4)
+library(forcats)
 
+
+win = 1600
 # Load the VA vcf
 VAvcf <- read.vcfR(
   "/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/top2R_1MB_VA.recode.vcf.gz")
@@ -40,8 +47,8 @@ VA_data %<>%
            into = c("chr","pos","feature"))
 
 VA_data %>%
-  filter(pos > 20551633-5000) %>%
-  filter(pos < 20551633+5000) ->
+  filter(pos > 20551633-win) %>%
+  filter(pos < 20551633+win) ->
   VA_focal
   
 
@@ -82,8 +89,8 @@ WORLD_data %<>%
            into = c("chr","pos","feature"))
 
 WORLD_data %>%
-  filter(pos > 20551633-5000) %>%
-  filter(pos < 20551633+5000) ->
+  filter(pos > 20551633-win) %>%
+  filter(pos < 20551633+win) ->
   WORLD_focal
 
 ME<-fread("/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/Sample_guides/All_samps_ME.txt", header = F)
@@ -128,29 +135,33 @@ inner_join(VA_focal, WORLD_focal, by = c("chr","pos","feature")) %>%
   inner_join(DGRP_data,  by = c("chr","pos","feature")) ->
   joint_data
 
+save(joint_data, file = "joint_data.Rdata")
+
 joint_data %>%
   filter(SNP_id.y == "2R_20551633_SNP") %>%
   t() %>% data.frame(SP70 = ., sampleid = rownames(.)) %>%
   filter(SP70 %in% c(0,2)) ->
   homozyg_SP70
+save(homozyg_SP70, file = "homozyg_SP70.Rdata")
 
 joint_data[,which(colnames(joint_data) %in% 
                     homozyg_SP70$sampleid)] ->
   dat_for_pca
 
-
 dat_for_pca %>% t() ->
   dat_for_pca_t
 
-save(dat_for_pca_t, file = "data.for.SP70_30k.pca_joint.Rdata")
+colnames(dat_for_pca_t) = joint_data$SNP_id.y
+
+save(dat_for_pca_t, file = "data.for.SP70_1600bp.pca_joint.Rdata")
 
 dat_for_pca_t %>%
   PCA(graph = F) ->
   PCA_obj
 
 ###save
-
-
+save(PCA_obj, file = "PCA_obj.haplo.Rdata")
+load("PCA_obj.haplo.Rdata")
 ####
 PCA_obj$ind$coord %>%
   as.data.frame() %>%
@@ -164,6 +175,17 @@ PCA_obj$ind$coord %>%
                           grepl("line", sampleid) ~ "DGRP"
   )) ->
   pca_coords_annot
+
+save(pca_coords_annot, file = "data.for.plotting.pca_coords_annot.Rdata")
+
+##### START HERE!!!
+##### START HERE!!!##### START HERE!!!##### START HERE!!!##### START HERE!!!
+##### START HERE!!!
+##### START HERE!!!
+##### START HERE!!!
+
+load("homozyg_SP70.Rdata")
+load("data.for.plotting.pca_coords_annot.Rdata")
 
 pca_coords_annot %>%
   ggplot(aes(
@@ -181,7 +203,7 @@ pca_coords_annot %>%
 ggsave(pca.plot, file = "pca.plot.pdf",
        w=6, h =3)
 
-#### Phenotyping 
+### Phenotyping 
 phenos <- readRDS("wideform.fixed.phenotable.RDS")
 names(phenos)
 
@@ -202,7 +224,7 @@ names(phenos_CT_matched) = c("sampleid", "CTF", "CTM", "SP70")
 wolb = fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/wolbachia.status.txt")
 names(wolb)[1] = "sampleid"
 left_join(phenos_CT_matched, wolb) -> phenos_CT_matched
-save(phenos_CT_matched, file = "phenos_CT_matched.Rdata")
+#save(phenos_CT_matched, file = "phenos_CT_matched.Rdata")
 
 ##### Bring in the PCA data
 
@@ -216,60 +238,173 @@ phenos_CT_matched_plus_PCA %>% melt(id = c("sampleid",
                                            "Dim.4","Dim.5","pop")) ->
   phenos_CT_matched_plus_PCA.melt
 
-
 phenos_CT_matched_plus_PCA.melt %>%
+  filter(Infection_Status == "n") -> 
+  phenos_CT_matched_plus_PCA.melt.no_wolb
+
+phenos_CT_matched_plus_PCA.melt.no_wolb %>%
   ggplot(aes(
     x=SP70,
     y=value,
-    fill=Infection_Status 
   )) + geom_boxplot() + 
-  facet_grid(variable~Infection_Status) +
+  facet_grid(.~variable) +
   theme_bw()->
   pheno_vio_all
 ggsave(pheno_vio_all, file = "pheno_vio_all.pdf",
-       w= 3, h = 4)
+       w= 5, h = 4)
 
-anova(lm(value ~ SP70*Infection_Status*variable, 
-    data = phenos_CT_matched_plus_PCA.melt))
+t.test(
+  value ~ SP70,
+  data = filter(phenos_CT_matched_plus_PCA.melt.no_wolb, 
+                variable == "CTM")
+)
+t.test(
+  value ~ SP70,
+  data = filter(phenos_CT_matched_plus_PCA.melt.no_wolb, 
+                variable == "CTF")
+)
 
-phenos_CT_matched %>%
-  filter(Infection_Status == "n") %>%
-  t.test(CTM~SP70, data = .)
-phenos_CT_matched %>%
-  filter(Infection_Status == "y") %>%
-  t.test(CTF~SP70, data = .)
+#### correlations
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 0) %>%
+  cor.test(~Dim.1+CTF, data = .) -> F10
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 0) %>%
+  cor.test(~Dim.2+CTF, data = .) -> F20
 
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 0) %>%
+  cor.test(~Dim.1+CTM, data = .) -> M10
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 0) %>%
+  cor.test(~Dim.2+CTM, data = .) -> M20
+
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.1+CTF, data = .) -> F11
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.2+CTF, data = .) -> F21
+
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.1+CTM, data = .) -> M11
+phenos_CT_matched_plus_PCA %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.2+CTM, data = .) -> M21
+#
+#data.frame(
+#  type = rep(c(rep("F", 3), rep("M", 3)),2),
+#  geno = c(rep(0, 6), rep(2, 6)),
+#  pc = c(rep(1:3, 2), rep(1:3, 2)),
+#  cor = c(F10$estimate,F20$estimate,F30$estimate,
+#          M10$estimate,M20$estimate,M30$estimate,
+#          F11$estimate,F21$estimate,F31$estimate,
+#          M11$estimate,M21$estimate,M31$estimate
+#          ),
+#  P   = c(F10$p.value,F20$p.value,F30$p.value,
+#          M10$p.value,M20$p.value,M30$p.value,
+#          F11$p.value,F21$p.value,F31$p.value,
+#          M11$p.value,M21$p.value,M31$p.value
+#  )
+#)
+#
+#####
 #### plot PCAs
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+n = 2
+cols = gg_color_hue(n)
+
+
 phenos_CT_matched_plus_PCA.melt %>%
+  filter(Infection_Status == "n") %>%
+  filter(variable == "CTF" & SP70 == 0) %>%
   ggplot(aes(
     x=Dim.1,
     y=value,
-    color= variable  ,
-    shape = SP70,
-    linetype = SP70
-  )) + geom_point() + geom_smooth(method = "lm", se = F) +
-  facet_grid(Infection_Status~SP70)->
-  pc_ctmax_plot
-
-ggsave(pc_ctmax_plot, file = "pc_ctmax_plot.pdf",
-       w = 4, h =3)
+  )) + geom_point(color = cols[1], size = 2.5 ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  theme_bw() ->
+  ctf_0_pc1
+ggsave(ctf_0_pc1, file = "ctf_0_pc1.pdf",
+       w = 4.5, h =4)
 
 phenos_CT_matched_plus_PCA.melt %>%
+  filter(Infection_Status == "n") %>%
+  filter(variable == "CTM" & SP70 == 2) %>%
+  ggplot(aes(
+    x=Dim.1,
+    y=value,
+  )) + geom_point(color = cols[2], size = 2.5 ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  theme_bw() ->
+  ctf_0_pc1
+ggsave(ctf_0_pc1, file = "ctm_2_pc1.pdf",
+       w = 4.5, h =4)
+
+phenos_CT_matched_plus_PCA.melt %>%
+  filter(Infection_Status == "n") %>%
+  filter(variable == "CTM" & SP70 == 2) %>%
+  ggplot(aes(
+    x=Dim.1,
+    y=value,
+  )) + geom_point(color = cols[2], size = 2.5 ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  theme_bw() ->
+  ctf_0_pc1
+ggsave(ctf_0_pc1, file = "ctm_2_pc1.pdf",
+       w = 4.5, h =4)
+
+E_O_data <- fread("Eliza_Olins_data.txt")
+names(E_O_data)[1] = "sampleid"
+inner_join(E_O_data, phenos_CT_matched_plus_PCA) ->
+  EO_dat_Lecheta_dat
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n" & SP70 == 2) %>%
+  ggplot(aes(
+    x=Dim.1,
+    y=Proportion,
+    ymin=
+    ymax=
+    color=SP70
+  )) + geom_point(size = 2.5, color = "brown" ) + 
+  geom_smooth(method = "lm", se = F) +
+  theme_bw() ->
+  ehs_aa
+ggsave(ehs_aa, file = "ehs_aa.pdf",
+       w = 4.5, h =4)
+
+phenos_CT_matched_plus_PCA.melt %>%
+  filter(Infection_Status == "n") %>%
+  filter(variable == "CTF" & SP70 == 0) %>%
   ggplot(aes(
     x=Dim.2,
     y=value,
-    color= variable  ,
-    shape = SP70,
-    linetype = SP70
-  )) + geom_point() + geom_smooth(method = "lm", se = F) +
-  facet_grid(Infection_Status~SP70)->
-  pc2_ctmax_plot
+  )) + geom_point(color = cols[1], size = 2.5 ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  theme_bw() ->
+  ctf_0_pc2
+ggsave(ctf_0_pc2, file = "ctf_0_pc2.pdf",
+       w = 4.5, h =4)
 
-ggsave(pc2_ctmax_plot, file = "pc2_ctmax_plot.pdf",
-       w = 4, h =3)
+phenos_CT_matched_plus_PCA.melt %>%
+  filter(Infection_Status == "n") %>%
+  filter(variable == "CTM" & SP70 == 0) %>%
+  ggplot(aes(
+    x=Dim.2,
+    y=value,
+  )) + geom_point(color = cols[2], size = 2.5 ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  theme_bw() ->
+  ctm_0_pc2
+ggsave(ctm_0_pc2, file = "ctm_0_pc2.pdf",
+       w = 4.5, h =4)
 
 
-#### correlations
+#####
 phenos_CT_matched_plus_PCA %>%
   filter(Infection_Status == "n") %>%
   filter(SP70 == 0) %>%
@@ -277,37 +412,140 @@ phenos_CT_matched_plus_PCA %>%
 phenos_CT_matched_plus_PCA %>%
   filter(Infection_Status == "n") %>%
   filter(SP70 == 0) %>%
+  cor.test(~Dim.2+CTF, data = .)
+phenos_CT_matched_plus_PCA %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.1+CTF, data = .)
+phenos_CT_matched_plus_PCA %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.2+CTF, data = .)
+
+
+phenos_CT_matched_plus_PCA %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 0) %>%
   cor.test(~Dim.1+CTM, data = .)
-
-
-phenos_CT_matched_plus_PCA %>%
-  filter(Infection_Status == "n") %>%
-  filter(SP70 == 0) %>%
-  cor.test(~Dim.2+CTF, data = .)
 phenos_CT_matched_plus_PCA %>%
   filter(Infection_Status == "n") %>%
   filter(SP70 == 0) %>%
   cor.test(~Dim.2+CTM, data = .)
-
 phenos_CT_matched_plus_PCA %>%
   filter(Infection_Status == "n") %>%
   filter(SP70 == 2) %>%
-  cor.test(~Dim.2+CTF, data = .)
+  cor.test(~Dim.1+CTM, data = .)
 phenos_CT_matched_plus_PCA %>%
   filter(Infection_Status == "n") %>%
   filter(SP70 == 2) %>%
   cor.test(~Dim.2+CTM, data = .)
+
+####
+E_O_data <- fread("Eliza_Olins_data.txt")
+names(E_O_data)[1] = "sampleid"
+inner_join(E_O_data, phenos_CT_matched_plus_PCA) ->
+  EO_dat_Lecheta_dat
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 0) %>%
+  cor.test(~Dim.1+Proportion, data = .)
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 0) %>%
+  cor.test(~Dim.2+Proportion, data = .)
+
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.1+Proportion, data = .)
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 2) %>%
+  cor.test(~Dim.2+Proportion, data = .)
+
+
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 2) %>%
+  ggplot(aes(
+    x=Dim.1,
+    y=Proportion
+  )) + geom_point(color = cols[1]  ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  facet_grid(~SP70) + theme_bw() ->
+  pc1_hatch_plot
+
+ggsave(pc1_hatch_plot, file = "pc1_hatch_plot.pdf",
+       w = 2, h =2)
+
 
 save(phenos_CT_matched_plus_PCA, file = "phenos_CT_matched_plus_PCA.Rdata")
+
+### Phenotypic space
+phenos_CT_matched  %>%
+  full_join(pca_coords_annot) ->
+  phenos_CT_matched_plus_PCA_FULL
+
+full_join(phenos_CT_matched_plus_PCA_FULL,  VA_meta)->
+  phenos_CT_matched_plus_PCA_FULL
+
+ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_point(data = phenos_CT_matched_plus_PCA_FULL,
+             aes(
+               x=Dim.1,
+               y=Dim.2,
+               shape = SP70
+             ), alpha = 0.5, size = 2.5, fill = "grey") +
+  geom_jitter(data = filter(phenos_CT_matched_plus_PCA_FULL, pop == "DGRP" & 
+                             !is.na(CTM) & SP70 == 0
+                             ),
+             aes(
+               x=Dim.1,
+               y=Dim.2,
+               fill=CTM,
+               shape = SP70
+             ), size = 4) +
+  scale_fill_gradient2(midpoint = 39.9, high = "red", low = "blue") +
+  scale_shape_manual(values = 21:22) +
+  theme_bw() ->
+  plottack1
+ggsave(plottack1, file = "plottack1.pdf",
+       h = 3, w = 7)
+
+phenos_CT_matched_plus_PCA_FULL %>%
+  group_by(pop) %>%
+  summarise(
+    m = ci(Dim.1)[1],
+    uci = ci(Dim.1)[2],
+    lci = ci(Dim.1)[3],
+  ) %>%
+  filter(!is.na(pop)) %>%
+  ggplot(aes(
+    x=pop,
+    y=m,
+    ymin=uci,
+    ymax=lci
+  )) + geom_errorbar(w = 0.01) +
+    geom_point(size = 3) + theme_bw()->
+  pop_est
+
+ggsave(pop_est, file = "pop_est.pdf")
+
+
+##
+
 ############ Eliza and Olin's Data
 ############ Eliza and Olin's Data
 ############ Eliza and Olin's Data
 ############ Eliza and Olin's Data
 ############ Eliza and Olin's Data
 ############ Eliza and Olin's Data
+
 load("phenos_CT_matched_plus_PCA.Rdata")
 
 E_O_data <- fread("Eliza_Olins_data.txt")
+names(E_O_data)[1] = "sampleid"
 
 inner_join(E_O_data, phenos_CT_matched_plus_PCA) ->
   EO_dat_Lecheta_dat
@@ -356,6 +594,7 @@ filter(EO_dat_Lecheta_dat, Infection_Status == "n",
 
 
 #####
+
 EO_dat_Lecheta_dat.wBinom <-
   foreach(i=1:dim(EO_dat_Lecheta_dat)[1],
           .combine = "rbind",
@@ -373,25 +612,58 @@ EO_dat_Lecheta_dat.wBinom <-
             )
           }
 
+
+load("homozyg_SP70.Rdata")
+load("data.for.plotting.pca_coords_annot.Rdata")
+
+full_join(pca_coords_annot, EO_dat_Lecheta_dat.wBinom) ->
+  pca_coord_w_lecheta
+
+
+ggplot() +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_point(data = pca_coord_w_lecheta,
+             aes(
+               x=Dim.1,
+               y=Dim.2,
+               shape = SP70
+             ), alpha = 0.5, size = 2.5, fill = "grey") +
+  geom_point(data = filter(pca_coord_w_lecheta, pop == "DGRP" & 
+                              !is.na(Proportion) 
+  ),
+  aes(
+    x=Dim.1,
+    y=Dim.2,
+    fill=Proportion,
+    shape = SP70
+  ), size = 4) +
+  scale_fill_gradient2(midpoint = 0.3, high = "red", low = "blue") +
+  scale_shape_manual(values = 21:22) +
+  theme_bw() ->
+  plottack_hatch
+ggsave(plottack_hatch, file = "plottack_hatch.pdf",
+       h = 3, w = 7)
+
 ####
 
 EO_dat_Lecheta_dat.wBinom %>%
-  filter(Infection_Status == "n") %>%
-  dplyr::select(CTF,CTM,Proportion,lci,uci,SP70_allele) %>%
-  melt(id = c("Proportion","lci","uci","SP70_allele")) %>%
+  dplyr::select(CTF,CTM,Proportion,lci,uci,SP70_allele, Infection_Status) %>%
+  melt(id = c("Proportion","lci","uci","SP70_allele","Infection_Status")) %>%
   ggplot(aes(
     x=value,
     y=Proportion,
     ymin=lci,
     ymax=uci,
     color=variable,
+    #shape = Infection_Status
   )) + 
   geom_errorbar(width = 0.1) +
-  geom_point(size = 2) + geom_smooth(method = "lm", se = F) +
-  facet_grid(~SP70_allele) + theme_bw() ->
+  geom_point(size = 2) + geom_smooth(method = "lm", se = F) + 
+  facet_grid(.~SP70_allele) + 
+  theme_bw() ->
   adultvsegg.hatch
 ggsave(adultvsegg.hatch, file = "adultvsegg.hatch.pdf",
-       w= 8, h = 2.0)
+       w= 6, h = 2.5)
 
 ####
   
@@ -413,4 +685,86 @@ EO_dat_Lecheta_dat.wBinom %>%
 ggsave(pcs.hatch, file = "pcs.hatch.pdf",
        w= 6, h = 3)
 
+
+##### Where SNPs are
+load("PCA_obj.haplo.Rdata")
+dimdesc(PCA_obj, axes = 1:2, proba = 1.0) ->
+  corr_study
+
+corr_study$Dim.1 %>%
+  as.data.frame() %>%
+  mutate(p.adj = p.adjust(quanti.p.value, "bonferroni")) %>%
+  mutate(SNPid = rownames(.))%>%
+  mutate(PC = 1)->
+  pc1_dim
+
+corr_study$Dim.2 %>%
+  as.data.frame() %>%
+  mutate(p.adj = p.adjust(quanti.p.value, "bonferroni")) %>%
+  mutate(SNPid = rownames(.)) %>%
+  mutate(PC = 2)->
+  pc2_dim
+
+#####
+pc1_dim %>%
+  filter(abs(quanti.correlation) > 0.6) %>%
+  mutate(SNPid= rownames(.)) %>%
+  .$SNPid -> ids1
+#####
+pc2_dim %>%
+  filter(abs(quanti.correlation) > 0.6) %>%
+  mutate(SNPid= rownames(.)) %>%
+  .$SNPid -> ids2
+
+#####
+load("joint_data.Rdata")
+load("homozyg_SP70.Rdata")
+load("phenos_CT_matched_plus_PCA.Rdata")
+
+joint_data %>%
+  filter(SNP_id.y == "2R_20550762_SNP") %>%
+  t() %>% data.frame(SNP2 = ., sampleid = rownames(.)) %>%
+  filter(SNP2 %in% c(0,2)) ->
+  homozyg_target2
+
+joint_data %>%
+  filter(SNP_id.y %in% c(ids1, ids2)) %>%
+  t() %>% as.data.frame() %>%
+  mutate(sampleid = rownames(.)) %>%
+  filter(grepl("line", sampleid)) ->
+  other_snps_genos
+
+colnames(other_snps_genos) = c(ids1, ids2, "sampleid")
+other_snps_genos[complete.cases(other_snps_genos),] -> other_snps_genos
+  
+
+apply(other_snps_genos[,-which(names(other_snps_genos) == "sampleid")], 
+      1, function(x) paste(x, collapse = ";") ) -> joint_geno_Calls
+data.frame(joint_geno_Calls,sampleid=other_snps_genos$sampleid) ->
+  homozyg_target_other
+
+left_join(homozyg_SP70, homozyg_target_other) %>%
+  filter(!is.na(joint_geno_Calls)) %>%
+  mutate(joint_geno = paste(SP70,joint_geno_Calls,
+                            sep = "_") ) %>%
+  left_join(phenos_CT_matched_plus_PCA) %>%
+  filter(!is.na(SP70)) %>%
+  filter(Infection_Status == "n") ->
+  data_other_SNPs
+
+data_other_SNPs$joint_geno %>% 
+  table %>% .[. >= 3] %>% names -> common_haps
+
+data_other_SNPs %>%
+  filter(joint_geno %in% common_haps) %>%
+  ggplot(aes(
+    x=fct_reorder(joint_geno, CTM),
+    y=CTM
+  )) + geom_boxplot() +
+  coord_flip()  ->
+  box_joint
+
+ggsave(box_joint, file = "box_joint.pdf")
+
+####
 
