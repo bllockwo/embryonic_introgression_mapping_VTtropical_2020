@@ -478,6 +478,19 @@ EO_dat_Lecheta_dat %>%
 ggsave(pc1_hatch_plot, file = "pc1_hatch_plot.pdf",
        w = 2, h =2)
 
+EO_dat_Lecheta_dat %>%
+  filter(Infection_Status == "n") %>%
+  filter(SP70 == 0) %>%
+  ggplot(aes(
+    x=Dim.1,
+    y=Proportion
+  )) + geom_point(color = cols[1]  ) + 
+  geom_smooth(method = "lm", se = F, color = "black") +
+  facet_grid(~SP70) + theme_bw() ->
+  pc1_hatch0_plot
+
+ggsave(pc1_hatch0_plot, file = "pc1_hatch0_plot.pdf",
+       w = 2, h =2)
 
 save(phenos_CT_matched_plus_PCA, file = "phenos_CT_matched_plus_PCA.Rdata")
 
@@ -687,6 +700,11 @@ ggsave(pcs.hatch, file = "pcs.hatch.pdf",
 
 
 ##### Where SNPs are
+##### Where SNPs are##### Where SNPs are
+##### Where SNPs are
+##### Where SNPs are
+##### Where SNPs are
+
 load("PCA_obj.haplo.Rdata")
 dimdesc(PCA_obj, axes = 1:2, proba = 1.0) ->
   corr_study
@@ -753,18 +771,126 @@ left_join(homozyg_SP70, homozyg_target_other) %>%
   data_other_SNPs
 
 data_other_SNPs$joint_geno %>% 
+  table %>% table
+
+data_other_SNPs$joint_geno %>% 
   table %>% .[. >= 3] %>% names -> common_haps
 
 data_other_SNPs %>%
   filter(joint_geno %in% common_haps) %>%
+  select(joint_geno, CTF,CTM) %>%
+  melt(id = c("joint_geno")) ->
+  dat.for.plot
+
+t.test(value~joint_geno,
+       data = filter(dat.for.plot, variable == "CTF" &
+                       joint_geno %in% 
+                       c("0_0;0;0;0;0;0;0;0;0;0",
+                         "2_0;0;0;0;0;0;0;0;0;0")))
+t.test(value~joint_geno,
+       data = filter(dat.for.plot, variable == "CTM" &
+                       joint_geno %in% 
+                       c("0_0;0;0;0;0;0;0;0;0;0",
+                         "2_0;0;0;0;0;0;0;0;0;0")))
+
+## rescue pheno
+t.test(value~joint_geno,
+       data = filter(dat.for.plot, variable == "CTF" &
+                       joint_geno %in% 
+                       c("2_2;2;2;2;0;2;0;2;2;2",
+                         "2_0;0;0;0;0;0;0;0;0;0")))
+
+
+dat.for.plot %>%
   ggplot(aes(
-    x=fct_reorder(joint_geno, CTM),
-    y=CTM
-  )) + geom_boxplot() +
-  coord_flip()  ->
+    x=joint_geno,
+    y=value,
+    fill=variable,
+  )) + geom_boxplot() + theme_classic() +
+  facet_grid(~variable)  ->
   box_joint
 
-ggsave(box_joint, file = "box_joint.pdf")
+ggsave(box_joint, file = "box_joint.pdf",
+       w= 3, h = 3)
 
-####
 
+data_other_SNPs %>%
+  separate(joint_geno_Calls, into = paste("snp", 1:10, sep = "_"), sep = ";" ) %>%
+  mutate(SNP_distance = (as.numeric(snp_1) +
+                           as.numeric(snp_2) +
+                           as.numeric(snp_3) +
+                           as.numeric(snp_4) +
+                           as.numeric(snp_5) +
+                           as.numeric(snp_6) +
+                           as.numeric(snp_7) +
+                           as.numeric(snp_8) +
+                           as.numeric(snp_9) +
+                           as.numeric(snp_10))) %>%
+  mutate(SNP_distance_rel = SNP_distance/2) -> 
+  distance_analysis
+
+anova(lm(CTF~SNP_distance_rel*SP70, data = distance_analysis))
+anova(lm(CTM~SNP_distance_rel*SP70, data = distance_analysis))
+
+distance_analysis %>%
+  ggplot(aes(
+    x=SNP_distance_rel,
+    y=CTF,
+    color=SP70
+  )) + geom_point(size = 2) + 
+  scale_color_brewer(palette = "Dark2") +
+  geom_smooth(method = "lm", se =F) + theme_bw() ->
+  snp_dist_plot
+
+ggsave(snp_dist_plot, file = "snp_dist_plot.pdf",
+       w= 3.5, h = 3)
+
+#### Embryos....
+#### Embryos....
+#### Embryos....
+#### Embryos....
+
+left_join(homozyg_SP70, homozyg_target_other) %>%
+  filter(!is.na(joint_geno_Calls)) %>%
+  mutate(joint_geno = paste(SP70,joint_geno_Calls,
+                            sep = "_") ) %>%
+  left_join(E_O_data) %>%
+  filter(!is.na(Proportion)) %>%
+  filter(Wolbachia_Status == "No") ->
+  data_other_SNPs_Embrios
+
+data_other_SNPs_Embrios %>%
+  ggplot(aes(
+    x=joint_geno,
+    y=Proportion,
+  )) + geom_boxplot() + 
+  theme_classic()  ->
+  box_joint_Embrios
+
+ggsave(box_joint_Embrios, file = "box_joint_Embrios.pdf",
+       w= 3, h = 3)
+
+
+
+data_other_SNPs_Embrios %>%
+  separate(joint_geno_Calls, into = paste("snp", 1:10, sep = "_"), sep = ";" ) %>%
+  mutate(SNP_distance = (as.numeric(snp_1) +
+                           as.numeric(snp_2) +
+                           as.numeric(snp_3) +
+                           as.numeric(snp_4) +
+                           as.numeric(snp_5) +
+                           as.numeric(snp_6) +
+                           as.numeric(snp_7) +
+                           as.numeric(snp_8) +
+                           as.numeric(snp_9) +
+                           as.numeric(snp_10))) %>%
+  mutate(SNP_distance_rel = SNP_distance/2) %>%
+  ggplot(aes(
+    x=SNP_distance_rel,
+    y=Proportion,
+    color=SP70
+  )) + geom_point() + geom_smooth(method = "lm") ->
+  snp_dist_plot_Emb
+
+ggsave(snp_dist_plot_Emb, file = "snp_dist_plot_Emb.pdf",
+       w= 6, h = 6)
