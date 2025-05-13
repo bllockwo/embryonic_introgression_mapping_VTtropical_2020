@@ -38,8 +38,9 @@ inday %>%
     y=-log10(P),
     color=as.character(pc)
   )) + geom_line() +
-  geom_hline(yintercept = -log10(0.05)) +
-  facet_grid(pc~geno) + theme_bw() ->
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = log10(1800)) +
+  facet_grid(.~geno) + theme_bw() ->
 plot1
 ggsave(plot1, file = "plotcor.pdf", w = 6, h = 3)
 
@@ -47,12 +48,11 @@ ggsave(plot1, file = "plotcor.pdf", w = 6, h = 3)
 
 inday %>%
   filter(pc %in% 1:2) %>%
-  filter(type == "M") %>%
+  #filter(type == "F") %>%
   group_by(pc, geno) %>%
   slice_min(P)
 
 inday %>%
   filter(pc %in% 1:2) %>%
-  filter(type == "M") %>%
-  filter(window_size == 1600)
+  filter(window_size == 1050)
 

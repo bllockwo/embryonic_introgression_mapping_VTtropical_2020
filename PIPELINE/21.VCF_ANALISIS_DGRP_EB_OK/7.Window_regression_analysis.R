@@ -154,9 +154,12 @@ joint_data[,which(colnames(joint_data) %in%
 dat_for_pca %>% t() ->
   dat_for_pca_t
 
+dat_for_pca_t[which(grepl("line", rownames(dat_for_pca_t))),] ->
+  dat_for_pca_t2
+
 #save(dat_for_pca_t, file = "data.for.SP70_30k.pca_joint.Rdata")
 
-dat_for_pca_t %>%
+dat_for_pca_t2 %>%
   PCA(graph = F) ->
   PCA_obj
 
