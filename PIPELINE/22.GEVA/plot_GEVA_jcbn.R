@@ -39,7 +39,7 @@ geva_dat.ed %>%
 
 geva_dat.ed %>%
   filter(chr == "X") %>%
-  filter(position %in% 15743371) %>%
+  filter(position %in% 15602941) %>%
   summarise(m.TMRCA = median(PostMean)*0.06666667,
   )
 

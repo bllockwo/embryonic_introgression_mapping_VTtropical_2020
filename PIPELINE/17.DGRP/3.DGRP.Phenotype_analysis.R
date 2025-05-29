@@ -14,16 +14,20 @@ names(SNPX)[1] = "line_id"
 SNP2R <- fread("/gpfs2/scratch/jcnunez/fst_brent/X_hits/2R_snp_info.txt", header = T)
 names(SNP2R)[1] = "line_id"
 
-phenos <- readRDS("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2024.Nunez_et_al_Genetics/Phenotyping/wideform.fixed.phenotable.RDS")
-phenos %>%
-  mutate(line_id = paste("line",ral_id, sep = "_")) %>%
-  left_join(SNPX) %>%
-  left_join(SNP2R)->
-  pheno_embryo_SNP
-
 embryos <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/Embryonic_Thermal_Tolerance/Final_data.txt")
 names(embryos)[1] = "line_id"
 embryos$line_id = gsub("DGRP", "line", embryos$line_id)
+
+
+phenos <- readRDS("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2024.Nunez_et_al_Genetics/Phenotyping/wideform.fixed.phenotable.RDS")
+phenos %>%
+  mutate(line_id = paste("line",ral_id, sep = "_")) %>%
+  full_join(SNPX) %>%
+  full_join(SNP2R) %>%
+  full_join(embryos) ->
+  pheno_embryo_SNP
+
+
 
 ### gwas loc
 loc <- "/gpfs2/scratch/jcnunez/fst_brent/phenotype_analysis/lpgwas/"
@@ -32,7 +36,7 @@ fils <- system(paste("ls ", loc), intern = T)
 topsnp_chr1 = "2R"
 topsnp_pos1 = "16439138"
 topsnp_chr2 = "X"
-topsnp_pos2 = "15741847"
+topsnp_pos2 = "15496974"
 
 top.snps =
   foreach(i=1:length(fils), .combine = "rbind")%do%{
@@ -79,9 +83,11 @@ signif_hits %>%
 #phenos.targ = which(names(pheno_embryo_SNP) %in% gsub(".txt","",signif_hits$pheno))
 
 phenos.targ = c("HighThermalToleranceExtreme_VaryingWithTemperature_F",                            
-"HighThermalToleranceExtreme_VaryingWithTemperature_M") 
+                "HighThermalToleranceExtreme_VaryingWithTemperature_M", "Proportion") 
 
 pheno_embryo_SNP = as.data.frame(pheno_embryo_SNP)
+pheno_embryo_SNP$Proportion %>% is.na %>% table
+
 pheno_embryo_SNP[,c(
   which(names(pheno_embryo_SNP) %in% 
           c("line_id", "snp_stat",phenos.targ, "Xsnp", "snp2R")))] %>%
@@ -89,17 +95,98 @@ pheno_embryo_SNP[,c(
   filter(Infection_Status == "n")-> flt.dat
 
 ########   
+
+### CTmax
+
 flt.dat %>%
   filter(Xsnp %in% c("A/A","G/G")) %>%
   filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
   t.test(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(Xsnp), data = .)
+flt.dat %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
+  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(Xsnp), data = .)
 
 flt.dat %>%
   filter(snp2R %in% c("A/A","C/C")) %>%
   filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
   t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(snp2R), data = .)
 
+####
+  flt.dat %>%
+    filter(snp2R %in% c("A/A","C/C") & Xsnp %in% c("A/A","G/G")) %>%
+    select(snp2R, Xsnp, HighThermalToleranceExtreme_VaryingWithTemperature_M, HighThermalToleranceExtreme_VaryingWithTemperature_F ) %>%
+    melt(id = c("snp2R", "Xsnp"), variable.name = "pheno") %>%
+    melt(id = c("pheno", "value"), variable.name = "genot", value.name = "alleles") %>%
+    mutate(allele_type = case_when(genot == "snp2R" & alleles == "C/C" ~ "tropical",
+                                   genot == "snp2R" & alleles == "A/A" ~ "temperate",
+                                   genot == "Xsnp" & alleles == "A/A" ~ "tropical",
+                                   genot == "Xsnp" & alleles == "G/G" ~ "temperate",
+                                   )) %>%
+    ggplot(
+      aes(
+        x=allele_type,
+        y=value,
+        fill=pheno
+      )
+    ) + geom_boxplot() + facet_grid(pheno~genot, scales = "free") +
+    theme(legend.position = "bottom")-> 
+    boxplot_prop
+  ggsave(boxplot_prop, file = "boxplot_prop.pdf",
+         h = 6, w = 6)
 
+####
+  flt.dat %>%
+    filter(snp2R %in% c("A/A","C/C") & Xsnp %in% c("A/A","G/G")) %>%
+    select(snp2R, Xsnp, 
+           HighThermalToleranceExtreme_VaryingWithTemperature_M, 
+           HighThermalToleranceExtreme_VaryingWithTemperature_F,
+           Proportion) %>%
+    melt(id = c("snp2R", "Xsnp", "Proportion"), variable.name = "pheno") %>%
+    melt(id = c("pheno", "value", "Proportion"), variable.name = "genot", value.name = "alleles") %>%
+    mutate(allele_type = case_when(genot == "snp2R" & alleles == "C/C" ~ "tropical",
+                                   genot == "snp2R" & alleles == "A/A" ~ "temperate",
+                                   genot == "Xsnp" & alleles == "A/A" ~ "tropical",
+                                   genot == "Xsnp" & alleles == "G/G" ~ "temperate",
+    )) %>%
+    ggplot(
+      aes(
+        x=value, y =Proportion,
+        color=pheno
+      )
+    ) + geom_point() + geom_smooth(method = "lm") +
+    facet_grid(genot~allele_type) +
+    theme(legend.position = "bottom")-> 
+    hatch_adult
+  ggsave(hatch_adult, file = "hatch_adult.pdf",
+         h = 6, w = 6)
+  
+####
+  flt.dat %>%
+    filter(snp2R %in% c("A/A","C/C") & Xsnp %in% c("A/A","G/G")) %>%
+    select(snp2R, Xsnp, 
+           HighThermalToleranceExtreme_VaryingWithTemperature_M, 
+           HighThermalToleranceExtreme_VaryingWithTemperature_F,
+           Proportion) %>%
+    melt(id = c("snp2R", "Xsnp", "Proportion"), variable.name = "pheno") %>%
+    mutate(joint_G = paste(snp2R, Xsnp)) %>%
+    ggplot(
+      aes(
+        x=value, y =Proportion,
+        color=pheno
+      )
+    ) + geom_point() + geom_smooth(method = "lm", se = F) +
+    facet_grid(.~joint_G) +
+    theme(legend.position = "bottom")-> 
+    hatch_adult_joint
+  ggsave(hatch_adult_joint, file = "hatch_adult_joint.pdf",
+         h = 6, w = 6)
+  
+
+  
+  
+  
+  
 ########                       
 flt.dat %>%
   filter(!is.na(snp_stat)) %>%

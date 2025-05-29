@@ -164,6 +164,11 @@ snp.dt <- snp.dt[nAllele==2]
 seqSetFilter(genofile, snp.dt$id)
 snp.dt[,global_af:=seqGetData(genofile, "annotation/info/AF")$data]
 
+#### STOP! check for Robjects before re-generating data <---
+#### STOP! check for Robjects before re-generating data <---
+#### STOP! check for Robjects before re-generating data <---
+#### STOP! check for Robjects before re-generating data <---
+
 #### TEST for clinality
 #### TEST for clinality
 #### TEST for clinality
@@ -209,6 +214,7 @@ foreach(snp=top_muts_X$POS,
           pEU_long=o3$p.value)
         }
 
+save(cline_test, file = "cline_test.X.Rdata")
 ####
 weather <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/Weather_NASA_power/WeatherData.mgarvin.csv")
 weather %>%
@@ -260,6 +266,8 @@ weather_samps =
                     } ### inner
             ######
           } ### outer
+
+save(weather_samps, file = "weather_samps.Rdata")
 ####
 #####
 #### note ... USE ONLY CVILLE!!!
@@ -343,6 +351,17 @@ foreach(POS.i = top_muts_X$POS,
                     }
           
         }
+
+save(X_exploration, file = "X_exploration.seas.Rdata")
+###
+###
+###
+load("X_exploration.seas.Rdata")
+load("weather_samps.Rdata")
+load("cline_test.X.Rdata")
+####
+###
+###
 ###
 
 left_join(cline_test, X_exploration) %>%
@@ -370,7 +389,12 @@ dat.for.plot %>%
   filter(pNA < 0.05 & p_lrt < 0.05) ->
   topXsnps
 #PRECTOTCORR_max -- 90 days
-#X pos = 15743371 
+#X pos = 15602941 
+
+X_exploration %>%
+  filter(POS == 15602941) %>%
+  filter(p_lrt < 0.05)
+
 
 #### Explore Cross
 genofile_cross <- seqOpen("/netfiles02/lockwood_lab/IntrogressionProject/SNPcalling_output/BLockIntro.PoolSeq.PoolSNP.001.5.test.ann.gds")
@@ -384,12 +408,12 @@ snps.CROSS <- data.table(chr=seqGetData(genofile_cross, "chromosome"),
 
 snps.CROSS %>%
   filter(chr == "X") %>%
-  filter(pos %in% topXsnps$POS)
+  filter(pos %in% 15602941)
 ### check the haplotype
 
 snps.CROSS %>%
   filter(chr == "X") %>%
-  filter(pos %in% topXsnps$POS) %>%
+  filter(pos %in% 15602941) %>%
   filter(nAlleles == 2) ->
   haplo.CROSS
 
