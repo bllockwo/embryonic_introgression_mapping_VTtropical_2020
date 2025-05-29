@@ -260,8 +260,6 @@ snp.dists <- as.matrix(dist(cbind(dat.v_PRECTOTCORR.lat.long$Long,
 snp.dists.inv <- 1/snp.dists
 diag(snp.dists.inv) <- 0
 
-snp.dists.inv[1:5, 1:5]
-
 Moran.I(dat.v_PRECTOTCORR.lat.long$AF_res, snp.dists.inv)
 
 

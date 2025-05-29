@@ -24,7 +24,7 @@ library(lme4)
 library(forcats)
 
 
-E_O_data <- fread("Eliza_Olins_data.txt")
+E_O_data <- fread("/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/Eliza_Olins_data.txt")
 names(E_O_data)[1] = "sampleid"
 
 ##### Where SNPs are
@@ -33,7 +33,7 @@ names(E_O_data)[1] = "sampleid"
 ##### Where SNPs are
 ##### Where SNPs are
 
-load("PCA_obj.haplo.Rdata")
+load("/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/PCA_obj.haplo.Rdata")
 dimdesc(PCA_obj, axes = 1:2, proba = 1.0) ->
   corr_study
 
@@ -102,9 +102,9 @@ pc2_dim %>%
 
 
 #####
-load("joint_data.Rdata")
-load("homozyg_SP70.Rdata")
-load("phenos_CT_matched_plus_PCA.Rdata")
+load("/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/joint_data.Rdata")
+load("/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/homozyg_SP70.Rdata")
+load("/gpfs2/scratch/jcnunez/fst_brent/slice_VCFs/phenos_CT_matched_plus_PCA.Rdata")
 
 #joint_data %>%
 #  filter(SNP_id.y == "2R_20550762_SNP") %>%
@@ -128,6 +128,13 @@ other_snps_genos[complete.cases(other_snps_genos),] -> other_snps_genos
 
 apply(other_snps_genos[,-which(names(other_snps_genos) == "sampleid")], 
       1, function(x) paste(x, collapse = ";") ) -> joint_geno_Calls
+
+data.frame(other_snps_genos,joint_geno_Calls) %>%
+  left_join(phenos_CT_matched_plus_PCA) ->
+  all_haplo_states
+
+save(all_haplo_states, file = "all_haplo_states.Rdata")
+
 data.frame(joint_geno_Calls,sampleid=other_snps_genos$sampleid) ->
   homozyg_target_other
 

@@ -5,21 +5,20 @@ library(foreach)
 
 ### Load phenos
 wolbachia_st <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/wolbachia.status.txt")
-C_lines <- fread("/gpfs2/scratch/jcnunez/fst_brent/DGRP_analysis/snp0.txt", header = F) %>%
-  mutate(snp_stat = "C")
-A_lines <- fread("/gpfs2/scratch/jcnunez/fst_brent/DGRP_analysis/snp2.txt", header = F) %>%
-  mutate(snp_stat = "A")
 invs <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/Inversion.status.txt")
 names(invs)[1] = "line_id"
 
-rbind(C_lines, A_lines) ->
-  lines_stats
-names(lines_stats)[1] = "line_id"
+SNPX <- fread("/gpfs2/scratch/jcnunez/fst_brent/X_hits/X_snp_info.txt", header = T)
+names(SNPX)[1] = "line_id"
+
+SNP2R <- fread("/gpfs2/scratch/jcnunez/fst_brent/X_hits/2R_snp_info.txt", header = T)
+names(SNP2R)[1] = "line_id"
 
 phenos <- readRDS("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2024.Nunez_et_al_Genetics/Phenotyping/wideform.fixed.phenotable.RDS")
 phenos %>%
   mutate(line_id = paste("line",ral_id, sep = "_")) %>%
-  left_join(lines_stats) ->
+  left_join(SNPX) %>%
+  left_join(SNP2R)->
   pheno_embryo_SNP
 
 embryos <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/Embryonic_Thermal_Tolerance/Final_data.txt")
@@ -30,29 +29,50 @@ embryos$line_id = gsub("DGRP", "line", embryos$line_id)
 loc <- "/gpfs2/scratch/jcnunez/fst_brent/phenotype_analysis/lpgwas/"
 fils <- system(paste("ls ", loc), intern = T)
 
-topsnp_chr = "2R"
-topsnp_pos = "16439138"
-  
+topsnp_chr1 = "2R"
+topsnp_pos1 = "16439138"
+topsnp_chr2 = "X"
+topsnp_pos2 = "15741847"
+
 top.snps =
   foreach(i=1:length(fils), .combine = "rbind")%do%{
     message(i)
     
-### load data
-tam <- fread(paste(loc,fils[i], sep = "/")) %>%
-          mutate(pheno = fils[i])
-p.adj = p.adjust(tam$PVAL, "fdr")
-
-tam %>%
-  mutate(p.adj = p.adj) %>%
-  filter(CHR == topsnp_chr) %>%
-  filter(POS == topsnp_pos) ->
-  tmp.snp
-
-return(tmp.snp)
+    ### load data
+    tam <- fread(paste(loc,fils[i], sep = "/")) %>%
+      mutate(pheno = fils[i])
+    #pheno="HighThermalToleranceExtreme_VaryingWithTemperature_M.txt"; tam <- fread(paste(loc,pheno, sep = "/")) %>% mutate(pheno = pheno)
+    
+    p.adj = p.adjust(tam$PVAL, "fdr")
+    
+    tam %>%
+      mutate(p.adj = p.adj) %>%
+      filter(CHR == topsnp_chr1) %>%
+      filter(POS == topsnp_pos1) ->
+      tmp.snp1
+    
+    tam %>%
+      mutate(p.adj = p.adj) %>%
+      filter(CHR == topsnp_chr2) %>%
+      filter(POS == topsnp_pos2) ->
+      tmp.snp2
+    
+    o <- rbind(tmp.snp1, tmp.snp2)
+    
+    return(o)
   }
+
+save(top.snps, file = "top.hits.X.2R.GWAS.rdata")
 
 top.snps %>% filter(PVAL < 0.1) ->
   signif_hits
+
+signif_hits %>%
+  filter(CHR == "2R")
+signif_hits %>%
+  filter(CHR == "X")
+
+
 
 ##extract phenos
 
@@ -63,9 +83,24 @@ phenos.targ = c("HighThermalToleranceExtreme_VaryingWithTemperature_F",
 
 pheno_embryo_SNP = as.data.frame(pheno_embryo_SNP)
 pheno_embryo_SNP[,c(
-                    which(names(pheno_embryo_SNP) %in% 
-                            c("line_id", "snp_stat",phenos.targ)))] -> flt.dat
-                       
+  which(names(pheno_embryo_SNP) %in% 
+          c("line_id", "snp_stat",phenos.targ, "Xsnp", "snp2R")))] %>%
+  left_join(wolbachia_st) %>%
+  filter(Infection_Status == "n")-> flt.dat
+
+########   
+flt.dat %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
+  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(Xsnp), data = .)
+
+flt.dat %>%
+  filter(snp2R %in% c("A/A","C/C")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
+  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(snp2R), data = .)
+
+
+########                       
 flt.dat %>%
   filter(!is.na(snp_stat)) %>%
   melt(id = c("line_id", "snp_stat")) %>%

@@ -15,9 +15,7 @@ markers %>%
   filter(inversion == "In(2R)Ns") ->
   markers.2R
   
-
-
-geva_dat <- fread("/netfiles/nunezlab/Shared_Resources/in_transit/lproud/VA.cm_GEVA_complete_named.txt")
+geva_dat <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/Embryonic_Thermal_Tolerance/GEVA_Ages/VA.cm_GEVA_named.txt")
 
 geva_dat %>%
   separate(id,
@@ -36,5 +34,12 @@ geva_dat.ed %>%
 geva_dat.ed %>%
   filter(chr == "2R") %>%
   filter(position %in% 20551633) %>%
-  summarise(m.TMRCA = median(TMRCA)*0.06666667,
+  summarise(m.TMRCA = median(PostMean)*0.06666667,
   )
+
+geva_dat.ed %>%
+  filter(chr == "X") %>%
+  filter(position %in% 15743371) %>%
+  summarise(m.TMRCA = median(PostMean)*0.06666667,
+  )
+

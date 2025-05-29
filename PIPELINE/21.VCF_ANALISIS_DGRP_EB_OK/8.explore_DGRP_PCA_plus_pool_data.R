@@ -28,6 +28,7 @@ load("data.for.SP70_1800bp.pca_joint.Rdata")
 load("homozyg_SP70.Rdata")
 load("PCA_obj.haplo.Rdata")
 wolb = fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/wolbachia.status.txt")
+names(wolb)[1] = "sampleid"
 
 dat_for_pca_t %>% 
   .[which(grepl("line", rownames(.))),]  ->

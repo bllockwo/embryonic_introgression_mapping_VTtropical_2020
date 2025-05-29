@@ -132,8 +132,8 @@ seqResetFilter(genofile)
       ### calculate effective read-depth
         afis <- merge(afi, samps, by="sampleId")
 
-        afis[chr=="X", nEff:=round((dp*nFlies - 1)/(dp+nFlies))]
-        afis[chr!="X", nEff:=round((dp*2*nFlies - 1)/(dp+2*nFlies))]
+        afis[chr=="X", nEff:=round((dp*nFlies)/(dp+nFlies - 1))]
+        afis[chr!="X", nEff:=round((dp*2*nFlies)/(dp+2*nFlies - 1))]
         afis[,af_nEff:=round(af*nEff)/nEff]
 
       ### return
