@@ -24,6 +24,10 @@ all_FET_d %<>%
          pval.adj_vt8f3 = p.adjust(vt8f3_f.test_pval, 'bonferroni'))
 
 all_FET_d %>%
+  filter(pval.adj_all  < 0.01) ->
+  All_FET_mutations
+
+all_FET_d %>%
   filter(pval.adj_all  < 0.01) %>%
   filter(chr == "2R") %>%
   filter(POS >= 19115753 & POS <= 20615753) ->
@@ -111,6 +115,19 @@ getAnnot("X", 15847814)
 #9   X 15847814      C downstream_gene_variant MODIFIER      UBL3 FBgn0026076
 
 #### FET Annotations
+annots_all_fet = foreach(i=1:dim(All_FET_mutations)[1], 
+                         .combine = "rbind")%do%{
+                           
+                           tmp = All_FET_mutations[i,]
+                           
+                           getAnnot(tmp$chr, tmp$POS)
+                         }
+
+annots_all_fet %>% 
+  filter(feature == "protein_coding") %>%
+  group_by(type, gene_name) %>% 
+  slice_head() ->
+  all_FET_annotations_GenomeWide
 
 annots_top_fet = foreach(i=1:dim(top_muts_all)[1], 
                          .combine = "rbind")%do%{
@@ -121,16 +138,28 @@ annots_top_fet = foreach(i=1:dim(top_muts_all)[1],
                          }
 
 annots_top_fet %>%
-  group_by(chr, pos, gene_name) %>%
+  filter(feature == "protein_coding")  %>%  
+  group_by(type, gene_name) %>% 
   slice_head() ->
   sliced_genes_FET_top
 
-write.table(sliced_genes_FET_top, 
-            file = "sliced_genes_FET_top.txt", 
+
+write.table(all_FET_annotations_GenomeWide, 
+            file = "all_FET_annotations_GenomeWide.txt", 
             append = FALSE, quote = FALSE, sep = "\t",
             eol = "\n", na = "NA", dec = ".", row.names = FALSE,
             col.names = TRUE, qmethod = c("escape", "double"),
             fileEncoding = "")
+
+write.table(sliced_genes_FET_top, 
+            file = "sliced_genes_FET_top_Xand2R.txt", 
+            append = FALSE, quote = FALSE, sep = "\t",
+            eol = "\n", na = "NA", dec = ".", row.names = FALSE,
+            col.names = TRUE, qmethod = c("escape", "double"),
+            fileEncoding = "")
+
+
+####
 
 annots_top_fet %>%
   ungroup() %>%
