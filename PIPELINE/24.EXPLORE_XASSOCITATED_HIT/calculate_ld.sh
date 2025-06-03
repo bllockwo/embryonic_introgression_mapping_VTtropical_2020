@@ -12,4 +12,7 @@ plink --ld "2R_20551633_SNP" "X_15602941_SNP" --vcf $va_vcf --allow-extra-chr --
 
 plink --ld "2R_16439138_SNP" "X_15496974_SNP" --vcf $dgrp_vcf --allow-extra-chr --double-id
 
-
+### Other interesting mutations to explore ... 
+#### 2R:20,551,633 and X:15,602,941
+plink --ld "X_15602941_SNP" "X_15648874_SNP" --vcf $va_vcf --allow-extra-chr --double-id
+plink --ld "X_15496974_SNP" "X_15542907_SNP" --vcf $dgrp_vcf --allow-extra-chr --double-id

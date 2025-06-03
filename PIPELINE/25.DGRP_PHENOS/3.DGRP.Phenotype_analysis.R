@@ -2,11 +2,14 @@ library(tidyverse)
 library(magrittr)
 library(data.table)
 library(foreach)
+library(gmodels)
 
 ### Load phenos
 wolbachia_st <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/wolbachia.status.txt")
 invs <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/Inversion.status.txt")
 names(invs)[1] = "line_id"
+apply(invs, 1, function(x) sum(x == "ST") ) -> inv_counts
+data.frame(invs, count=inv_counts) -> invs
 
 SNPX <- fread("/gpfs2/scratch/jcnunez/fst_brent/X_hits/X_snp_info.txt", header = T)
 names(SNPX)[1] = "line_id"
@@ -26,8 +29,6 @@ phenos %>%
   full_join(SNP2R) %>%
   full_join(embryos) ->
   pheno_embryo_SNP
-
-
 
 ### gwas loc
 loc <- "/gpfs2/scratch/jcnunez/fst_brent/phenotype_analysis/lpgwas/"
@@ -94,23 +95,42 @@ pheno_embryo_SNP[,c(
   left_join(wolbachia_st) %>%
   filter(Infection_Status == "n")-> flt.dat
 
+left_join(flt.dat, invs) %>%
+  filter(count == 16)
 ########   
 
-### CTmax
-
-flt.dat %>%
-  filter(Xsnp %in% c("A/A","G/G")) %>%
-  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
-  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(Xsnp), data = .)
-flt.dat %>%
-  filter(Xsnp %in% c("A/A","G/G")) %>%
-  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
-  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(Xsnp), data = .)
-
-flt.dat %>%
+left_join(flt.dat, invs) %>%
   filter(snp2R %in% c("A/A","C/C")) %>%
   filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
-  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(snp2R), data = .)
+  lm(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(snp2R), data = .) %>%
+  anova
+
+left_join(flt.dat, invs) %>%
+  filter(snp2R %in% c("A/A","C/C")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
+  lm(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(snp2R), data = .) %>%
+  anova
+
+### CTmax
+left_join(flt.dat, invs) %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
+  lm(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(Xsnp), data = .) %>%
+  anova
+
+left_join(flt.dat, invs) %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
+  lm(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(Xsnp), data = .) %>%
+  anova
+
+####
+left_join(flt.dat, invs) %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(snp2R %in% c("A/A","C/C")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
+  lm(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(Xsnp)*as.factor(snp2R), data = .) %>%
+  anova
 
 ####
   flt.dat %>%
@@ -129,12 +149,13 @@ flt.dat %>%
         y=value,
         fill=pheno
       )
-    ) + geom_boxplot() + facet_grid(pheno~genot, scales = "free") +
-    theme(legend.position = "bottom")-> 
+    ) + geom_boxplot() + facet_grid(.~genot, scales = "free") +
+    theme_bw() + theme(legend.position = "bottom") -> 
     boxplot_prop
   ggsave(boxplot_prop, file = "boxplot_prop.pdf",
-         h = 6, w = 6)
+         h = 4, w = 6)
 
+  
 ####
   flt.dat %>%
     filter(snp2R %in% c("A/A","C/C") & Xsnp %in% c("A/A","G/G")) %>%
