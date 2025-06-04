@@ -77,10 +77,7 @@ signif_hits %>%
 signif_hits %>%
   filter(CHR == "X")
 
-
-
 ##extract phenos
-
 #phenos.targ = which(names(pheno_embryo_SNP) %in% gsub(".txt","",signif_hits$pheno))
 
 phenos.targ = c("HighThermalToleranceExtreme_VaryingWithTemperature_F",                            
@@ -107,6 +104,11 @@ left_join(flt.dat, invs) %>%
 
 left_join(flt.dat, invs) %>%
   filter(snp2R %in% c("A/A","C/C")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
+  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(snp2R), data = .)
+
+left_join(flt.dat, invs) %>%
+  filter(snp2R %in% c("A/A","C/C")) %>%
   filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
   lm(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(snp2R), data = .) %>%
   anova
@@ -120,9 +122,20 @@ left_join(flt.dat, invs) %>%
 
 left_join(flt.dat, invs) %>%
   filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_F)) %>%
+  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_F~as.factor(Xsnp), data = .)
+
+
+left_join(flt.dat, invs) %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
   filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
   lm(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(Xsnp), data = .) %>%
   anova
+
+left_join(flt.dat, invs) %>%
+  filter(Xsnp %in% c("A/A","G/G")) %>%
+  filter(!is.na(HighThermalToleranceExtreme_VaryingWithTemperature_M)) %>%
+  t.test(HighThermalToleranceExtreme_VaryingWithTemperature_M~as.factor(Xsnp), data = .)
 
 ####
 left_join(flt.dat, invs) %>%
