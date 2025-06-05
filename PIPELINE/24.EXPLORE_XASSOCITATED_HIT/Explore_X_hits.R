@@ -390,6 +390,9 @@ dat.for.plot %>%
   topXsnps
 #PRECTOTCORR_max -- 90 days
 #X pos = 15602941 
+#X pos = 15648874  (Odz03; sog regulator)
+dat.for.plot %>%
+  filter(POS == 15648874) %>% as.data.frame()
 
 X_exploration %>%
   filter(POS == 15602941) %>%
@@ -406,6 +409,9 @@ snps.CROSS <- data.table(chr=seqGetData(genofile_cross, "chromosome"),
                          alleles=seqGetData(genofile_cross, "allele"),
                          nAlleles=seqNumAllele(genofile_cross))
 
+#15648874
+## NOTE that top SNP is --> 15602941
+## NOTE that Odz03 is --> 15648874
 snps.CROSS %>%
   filter(chr == "X") %>%
   filter(pos %in% 15602941)
@@ -472,9 +478,12 @@ topXsnps %>%
   filter(POS %in% c(15602941, 15607604, 15847814 ))
 ######
 ######
-snppp = 15602941
-win = 90
-var = "PRECTOTCORR_max"
+## NOTE that top SNP is --> 15602941 .. with PRECTOTCORR_max 90
+## NOTE that Odz03 is --> 15648874 ... with RH2M_sd 15
+
+snppp = 15648874
+win = 15
+var = "RH2M_sd"
 mod_o_perms =
   foreach(Slide_K = win, #seq(from=15, to = 90, by = 15),
           .combine = "rbind", .errorhandling = "remove")%do%{
@@ -547,6 +556,8 @@ mod_o_perms =
           }
 
 sum(mod_o_perms$p_lrt < 0.0153053937)/length(mod_o_perms$p_lrt)
+sum(mod_o_perms$p_lrt < 0.1189294)/length(mod_o_perms$p_lrt)
+
 ##  0.03
 ## beat 97% of permutaions!
 
