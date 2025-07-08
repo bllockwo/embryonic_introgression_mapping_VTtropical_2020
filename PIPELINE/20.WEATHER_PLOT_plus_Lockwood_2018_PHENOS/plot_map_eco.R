@@ -134,3 +134,22 @@ sites.weather %>%
   group_by(pop, variable) %>%
   summarise(m.val = ci(value)[1],
             sd.val = sd(value))
+
+
+#### var temperature analysis
+sites.weather %>%
+  melt(id = c("LON", "LAT", "YEAR", "MO", "DY", "HR", "pop")) %>%
+  group_by(MO,DY, pop, variable) %>%
+  filter(variable == "T2M") %>%
+  summarise(vart = var(value)) %>%
+  ggplot(aes(
+    x=MO,
+    y=log10(vart),
+    color=pop
+  )) +
+  geom_point() + geom_smooth() +
+  theme_classic() +
+  facet_wrap(~variable, scales = "free_x")
+
+
+

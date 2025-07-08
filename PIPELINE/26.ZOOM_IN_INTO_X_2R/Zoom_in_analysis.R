@@ -181,6 +181,9 @@ ggsave(gene_struct_plot,
        w = 9, h = 2.5,
        file = "gene_struct_plot.pdf")
 
+
+
+
 #####
 annots_top_X = foreach(i=1:dim(filter(FETX, pval.adj_all < 0.01 ))[1], 
                          .combine = "rbind")%do%{
@@ -199,4 +202,6 @@ annots_top_2r = foreach(i=1:dim(filter(FET2R, pval.adj_all < 0.01 ))[1],
                          
                          getAnnot(tmp$chr, tmp$POS)
                        }
+
+unique(annots_top_2r$pos)
 
