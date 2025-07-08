@@ -34,7 +34,10 @@ Code to create a matrix of allele frequency genome-wide
 ## 9.1.SIMULATIONS_FST
 Code to run the simulations in SliM
 
-## 9.2.FET.summaries
+## 9.2.FET
+Code to perform the FET
+
+## 9.3.FET.summaries
 Code to explore the results of the FET
 
 ## 10.in2RNS
