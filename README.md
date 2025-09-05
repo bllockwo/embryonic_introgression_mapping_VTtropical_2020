@@ -1,14 +1,21 @@
-# embryonic_introgression_mapping_VTtropical_2020
+# Repo: Early life-stage thermal resilience is determined by climate-linked regulatory variation
 
 This repo include all the code needed to reproduce the analyses for **"Early life-stage thermal resilience is determined by climate-linked regulatory variation."** 
 
-By Joaquin C. B. Nunez, Sumaetee Tangwancharoen, Kylie M. Finnegan, Luke A. Proud, and Brent L. Lockwood
+By Joaquin C. B. Nunez, Sumaetee Tangwancharoen, Kylie M. Finnegan, Eliza M. Bufferd, Olin C. King, Luke A. Proud, and Brent L. Lockwood
 
 All scripts are included and organized in the Pipeline folder.
 
-Please cite our paper at: TBD
+Please cite our preprint at: https://doi.org/10.1101/2025.07.07.663603
 
 Please send all inquires to Joaquin.Nunez@uvm.edu
+
+# Data Availability 
+* Allele Age Estimates: https://doi.org/10.5281/zenodo.17059130 
+* Pool-Seq data: SRR SRR34395643-SRR34395650
+* RNA-seq data: SRR SRR34364630-SRR34364680
+
+# Code
 
 ## 2.MODIFIED_DEST
 This folder includes code to run the DEST pipeline, customized for the needs of this project.

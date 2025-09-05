@@ -7,7 +7,7 @@
 #SBATCH --mem 20G   
 #SBATCH -o ./slurmOutput/%x.%A_%a.out  
 #SBATCH -p general  
-#SBATCH --array=2-117
+#SBATCH --array=1-117
 
 module load Rtidyverse 
 

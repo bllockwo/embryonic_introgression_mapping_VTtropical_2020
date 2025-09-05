@@ -111,7 +111,7 @@ top_muts_X %>%
   slice_min(pval.adj_all)
 ###
 ### open GDS
-genofile <- seqOpen("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST.2.0._release/dest.all.PoolSNP.001.50.8Jun2023.norep.AT_EScorrect.ann.gds", allow.duplicate=T)
+genofile <- seqOpen("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2025.DEST.2.0._release/dest.all.PoolSNP.001.50.8Jun2023.norep.AT_EScorrect.ann.gds", allow.duplicate=T)
 
 
 #####
@@ -392,10 +392,10 @@ dat.for.plot %>%
 #X pos = 15602941 
 #X pos = 15648874  (Odz03; sog regulator)
 dat.for.plot %>%
-  filter(POS == 15648874) %>% as.data.frame()
+  filter(POS == 15607604) %>% as.data.frame()
 
 X_exploration %>%
-  filter(POS == 15602941) %>%
+  filter(POS == 15607604) %>%
   filter(p_lrt < 0.05)
 
 
@@ -414,12 +414,12 @@ snps.CROSS <- data.table(chr=seqGetData(genofile_cross, "chromosome"),
 ## NOTE that Odz03 is --> 15648874
 snps.CROSS %>%
   filter(chr == "X") %>%
-  filter(pos %in% 15602941)
+  filter(pos %in% 15607604)
 ### check the haplotype
 
 snps.CROSS %>%
   filter(chr == "X") %>%
-  filter(pos %in% 15602941) %>%
+  filter(pos %in% 15607604) %>%
   filter(nAlleles == 2) ->
   haplo.CROSS
 
@@ -481,9 +481,9 @@ topXsnps %>%
 ## NOTE that top SNP is --> 15602941 .. with PRECTOTCORR_max 90
 ## NOTE that Odz03 is --> 15648874 ... with RH2M_sd 15
 
-snppp = 15648874
-win = 15
-var = "RH2M_sd"
+snppp = 15607604
+win = 45
+var = "PRECTOTCORR_max"
 mod_o_perms =
   foreach(Slide_K = win, #seq(from=15, to = 90, by = 15),
           .combine = "rbind", .errorhandling = "remove")%do%{
@@ -555,8 +555,7 @@ mod_o_perms =
             }
           }
 
-sum(mod_o_perms$p_lrt < 0.0153053937)/length(mod_o_perms$p_lrt)
-sum(mod_o_perms$p_lrt < 0.1189294)/length(mod_o_perms$p_lrt)
+sum(mod_o_perms$p_lrt < 0.04589593)/length(mod_o_perms$p_lrt)
 
 ##  0.03
 ## beat 97% of permutaions!
@@ -846,6 +845,15 @@ weather <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/2023.DEST
         lat_clineX
       
       ggsave(lat_clineX, file = "lat_clineX.pdf")
+
+      cor.test(~lat+af, 
+               data = filter(Cville.dataX, continent == "North_America"))
+      cor.test(~long+af, 
+               data = filter(Cville.dataX, continent == "North_America"))
+      cor.test(~lat+af, 
+               data = filter(Cville.dataX, continent == "Europe"))
+      cor.test(~long+af, 
+               data = filter(Cville.dataX, continent == "Europe"))
       
 ####
       ################

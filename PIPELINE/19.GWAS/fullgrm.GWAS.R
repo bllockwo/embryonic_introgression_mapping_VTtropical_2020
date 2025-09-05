@@ -17,13 +17,22 @@ INPUT = "/gpfs2/scratch/jcnunez/fst_brent/GWAS_EB_OK/"#path of working directory
 #load grm
 grm = readRDS(paste0(INPUT, "GRM.Aug"))
 #load in our phenotype file 
-phenotable = fread(paste0(INPUT, "Mar28.data.txt"))
+phenotable = fread(paste0(INPUT, "OK_EB_data.Aug16.2026.txt"))
+wolb <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/wolbachia.status.txt")
+inv <- fread("/netfiles/nunezlab/D_melanogaster_resources/Datasets/DGRP2/Inversion.status.txt")
+names(wolb)[1] = "Line"
+names(inv)[1] = "Line"
+
+phenotable%>% 
+  full_join(wolb) %>% 
+  full_join(inv) ->
+  phenotable
 #fix ral ids
 dt = phenotable %>% 
   dplyr::rename("ral_id" = Line) %>% 
   mutate(ral_id = gsub("DGRP", "line", ral_id)) %>%
-  mutate(WolbNum = case_when(Wolbachia_Status == "Yes" ~ 1,
-                             Wolbachia_Status == "No" ~ 0
+  mutate(WolbNum = case_when(Infection_Status == "y" ~ 1,
+                             Infection_Status == "n" ~ 0
   ))
 
 ###filter stuff .. grm
@@ -45,7 +54,7 @@ step.bp = 1e6+1
 
 wins <- foreach(chr.i=c("2L","2R","3L","3R","X"),
                 .combine="rbind", 
-                .errorhandling="remove")%dopar%{
+                .errorhandling="remove")%do%{
                   
                   tmp <- snps.dt %>%
                     filter(chr == chr.i)
@@ -68,8 +77,8 @@ snps.dt.flt = snps.dt %>%
 
 #GMMAT creates a null model that uses wolbachia status as fixed effect on phenotype, and the identity matrix as a (nonexistent) random effect. family refers to the method used to calculate the model
 #fit a GLMM to the data
-modelqtl <- glmmkin(fixed =  Proportion ~ Wolbachia_Status, 
-                    data = dt, 
+modelqtl <- glmmkin(fixed =  Proportion ~ WolbNum,   #Wolbachia_Status 
+                    data = dt[!is.na(Proportion)], 
                     kins = grm_Set, id = "ral_id",
                     family = binomial(link = "logit"))
 
