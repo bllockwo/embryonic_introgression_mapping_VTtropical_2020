@@ -24,6 +24,7 @@ snps.dt <- data.table(chr=seqGetData(genofile, "chromosome"),
 snps.dt %>% 
 filter(snp_id %in%
 c(
+"2R_16439019",
 "2R_16439138",
 "X_15496974",
 "X_15501637",
@@ -55,7 +56,7 @@ GENO.matrix$genotype %>%
 colnames(GENO.matrix.dt) <- paste(seqGetData(genofile, "chromosome"), seqGetData(genofile, "position"), sep="_")
 rownames(GENO.matrix.dt) <- seqGetData(genofile, "sample.id")
 ### load data
-egg_data <- fread("OK_EB_data.Aug16.2026.txt")
+egg_data <- fread("/gpfs2/scratch/jcnunez/Embryo_fix/OK_EB_data.Aug16.2026.txt")
 all_phenos <- readRDS("/gpfs2/scratch/jcnunez/fst_brent/GWAS_EB_OK/wideform.fixed.phenotable.RDS")
 
 egg_data.wBinom <-

@@ -2,8 +2,9 @@
 library(data.table)
 library(tidyverse)
 library(foreach)
+library(magrittr)
 
-
+source("local.score.R")
 autocor = function(x) {
   abs(cor(x[-1], x[-length(x)]))
 }
@@ -29,8 +30,9 @@ thresUnif = function(L, cor, xi, alpha = 0.05) {
   return(thres)
 }
 
+#
 files = 
-system("ls /gpfs2/scratch/jcnunez/fst_brent/GWAS_EB_OK/GWAS_out/batch.*.txt", 
+system("ls /gpfs2/scratch/jcnunez/BenCamber_GWAS/GWAS_out/batch.*.txt", 
        intern = T)
 
 o = foreach(i=files,
@@ -47,10 +49,14 @@ o %>%
 o %>%
   filter(CHR == "X") %>% filter(POS == 15501637 )
 ####
+o %<>%
+  mutate(padj = p.adjust(PVAL, "fdr"))
+
 o %>%
 ggplot(aes(
   x=POS,
-  y=-log10(PVAL))) + geom_point() +
+  y=-log10(padj))) + geom_point() +
+  geom_hline(yintercept = -log10(0.05)) +
   facet_grid(~CHR) ->
   gwas
 ggsave(gwas, file = "gwas.png", w=9, h=4)
@@ -64,6 +70,6 @@ png("lindley.png")
 gwas.lcos=compute.local.scores(pstmp,
                                snp.pi=pi,
                                snp.pvalue = pval,
-                               xi=1,manplot = T,main="xi=2")
+                               xi=1,manplot = T,main="xi=1")
 dev.off()
 

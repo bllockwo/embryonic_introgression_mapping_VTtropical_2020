@@ -62,6 +62,7 @@ getData <- function(chr="2L",
   ### return
   afis[,c("sampleId", "af_nEff", "af", "nEff"), with=F]
 }
+
 #########
 anovaFun <- function(m1, m2) {
   #  m1 <- t0; m2<- t1.year
